@@ -1,20 +1,57 @@
 name: Rust checks
-on: [push, pull_request]
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   verify:
+    name: Verify (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-2022]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust
         run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
       - name: Format
-        run: cargo +stable fmt --check
+        run: cargo +stable fmt --all --check
       - name: Lint
         run: cargo +stable clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo +stable test --locked --all-targets
+      - name: Build executables
+        run: cargo +stable build --locked --bins
+      - name: Smoke test replay HTTP and evaluation CLI
+        run: python scripts/ci-smoke.py --bin-dir target/debug
+
+  msrv:
+    name: Minimum Rust (1.85)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install minimum Rust version
+        run: rustup toolchain install 1.85.0 --profile minimal
+      - name: Check all targets with the committed lockfile
+        run: cargo +1.85.0 check --locked --all-targets

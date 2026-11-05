@@ -1,0 +1,216 @@
+name: GitHub Release
+
+on:
+  push:
+    tags: ["v*"]
+  # Select an existing v* tag when running manually; branches are rejected.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Require a tag matching Cargo.toml
+        id: version
+        env:
+          RELEASE_REF: ${{ github.ref }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          metadata = json.loads(subprocess.check_output(
+              ["cargo", "+stable", "metadata", "--locked", "--no-deps", "--format-version", "1"],
+              text=True,
+          ))
+          package = next(item for item in metadata["packages"]
+                         if Path(item["manifest_path"]).resolve() == Path("Cargo.toml").resolve())
+          tag = "v" + package["version"]
+          if os.environ["RELEASE_REF"] != "refs/tags/" + tag:
+              raise SystemExit(f"Run this workflow on the existing {tag} tag, matching Cargo.toml")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"tag={tag}\n")
+          PY
+
+  verify:
+    name: Full CI before release
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Package (${{ matrix.target }})
+    needs: [validate, verify]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        shell: bash
+        run: rustup toolchain install stable --profile minimal --target "$TARGET"
+      - name: Build release executables
+        shell: bash
+        run: cargo +stable build --release --locked --bins --target "$TARGET"
+      - name: Package allowlisted files and verify archive
+        id: package
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          import shutil
+          import tarfile
+          import zipfile
+
+          target = os.environ["TARGET"]
+          windows = target.endswith("windows-msvc")
+          suffix = ".exe" if windows else ""
+          stem = f"dhaba-triage-{os.environ['RELEASE_TAG']}-{target}"
+          binaries = [f"{name}{suffix}" for name in ("dhaba-triage", "evaluate", "evaluate-live", "rereview")]
+          files = {name: Path("target") / target / "release" / name for name in binaries}
+          files[".env.example"] = Path(".env.example")
+          for name in ("LICENSE", "LICENSE-MIT", "LICENSE-APACHE", "NOTICE"):
+              if Path(name).is_file():
+                  files[name] = Path(name)
+          for source in files.values():
+              if not source.is_file():
+                  raise SystemExit(f"Missing release file: {source}")
+
+          dist = Path("dist")
+          dist.mkdir()
+          archive = dist / (stem + (".zip" if windows else ".tar.gz"))
+          expected = {f"{stem}/{name}" for name in files}
+          unpacked = Path(os.environ["RUNNER_TEMP"]) / "release-smoke" / stem
+          unpacked.mkdir(parents=True)
+          if windows:
+              with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
+                  for name, source in files.items():
+                      output.write(source, f"{stem}/{name}")
+              with zipfile.ZipFile(archive) as saved:
+                  if set(saved.namelist()) != expected or saved.testzip() is not None:
+                      raise SystemExit("Invalid archive contents")
+                  for name in files:
+                      (unpacked / name).write_bytes(saved.read(f"{stem}/{name}"))
+          else:
+              with tarfile.open(archive, "w:gz") as output:
+                  for name, source in files.items():
+                      output.add(source, arcname=f"{stem}/{name}", recursive=False)
+              with tarfile.open(archive, "r:gz") as saved:
+                  if set(saved.getnames()) != expected or not all(m.isfile() for m in saved):
+                      raise SystemExit("Invalid archive contents")
+                  for name in files:
+                      with saved.extractfile(f"{stem}/{name}") as source:
+                          with (unpacked / name).open("wb") as destination:
+                              shutil.copyfileobj(source, destination)
+                      (unpacked / name).chmod(0o755 if name in binaries else 0o644)
+          for name, source in files.items():
+              if hashlib.sha256(source.read_bytes()).digest() != hashlib.sha256((unpacked / name).read_bytes()).digest():
+                  raise SystemExit(f"Archive roundtrip changed {name}")
+          checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
+          archive.with_name(archive.name + ".sha256").write_text(
+              f"{checksum}  {archive.name}\n", encoding="ascii"
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"bin-dir={unpacked.as_posix()}\n")
+          PY
+      - name: Smoke test the extracted release
+        env:
+          BIN_DIR: ${{ steps.package.outputs.bin-dir }}
+        shell: bash
+        run: python scripts/ci-smoke.py --bin-dir "$BIN_DIR"
+      - name: Upload verified release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    name: Publish verified assets
+    needs: [validate, verify, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download assets from this run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Verify the complete release asset set
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+
+          dist = Path("dist")
+          prefix = f"dhaba-triage-{os.environ['RELEASE_TAG']}-"
+          archives = [prefix + "x86_64-unknown-linux-gnu.tar.gz", prefix + "x86_64-pc-windows-msvc.zip"]
+          expected = set(archives + [name + ".sha256" for name in archives])
+          if {file.name for file in dist.iterdir()} != expected:
+              raise SystemExit("Release assets are missing or unexpected")
+          for name in archives:
+              checksum = hashlib.sha256((dist / name).read_bytes()).hexdigest()
+              if (dist / (name + ".sha256")).read_text(encoding="ascii") != f"{checksum}  {name}\n":
+                  raise SystemExit(f"Checksum mismatch: {name}")
+          (dist / "SHA256SUMS").write_text(
+              "".join((dist / (name + ".sha256")).read_text(encoding="ascii") for name in archives),
+              encoding="ascii",
+          )
+          PY
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        shell: bash
+        run: |
+          options=()
+          if [[ "${RELEASE_TAG%%+*}" == *-* ]]; then
+            options+=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" dist/*.tar.gz dist/*.zip dist/SHA256SUMS \
+            --verify-tag --title "$RELEASE_TAG" --generate-notes "${options[@]}"
