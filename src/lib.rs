@@ -4,5 +4,6 @@ pub mod deepseek;
 pub mod domain;
 pub mod model;
 pub mod policy;
+pub mod reply;
 pub mod service;
 pub mod store;

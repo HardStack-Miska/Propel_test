@@ -6,7 +6,7 @@
 use crate::domain::*;
 use chrono::Duration;
 
-pub const POLICY_VERSION: &str = "assumed-dhaba-v1";
+pub const POLICY_VERSION: &str = "assumed-dhaba-v2";
 const MIN_CONFIDENCE: f64 = 0.85;
 const MONTHLY_PRICE_INR: u32 = 249;
 
@@ -17,6 +17,7 @@ pub fn evaluate(ticket: &Ticket, outcome: &AnalysisOutcome) -> TriageResult {
     // This supplementary check protects the supplied fraud example even if the
     // classifier labels it as a billing question. It is not a fraud detector.
     let fraud = analysis.category == Category::Fraud
+        || analysis.details.secondary_intent == Some(Category::Fraud)
         || [
             "fraud",
             "never installed",
@@ -26,8 +27,7 @@ pub fn evaluate(ticket: &Ticket, outcome: &AnalysisOutcome) -> TriageResult {
         ]
         .iter()
         .any(|signal| content.contains(signal));
-    let valid_confidence =
-        analysis.confidence.is_finite() && (0.0..=1.0).contains(&analysis.confidence);
+    let valid_confidence = analysis.validate();
     let confidence = if valid_confidence {
         analysis.confidence
     } else {
@@ -68,7 +68,9 @@ pub fn evaluate(ticket: &Ticket, outcome: &AnalysisOutcome) -> TriageResult {
         } else {
             review("refund_context_requires_review")
         }
-    } else if category == Category::BillingRefund {
+    } else if category == Category::BillingRefund
+        || analysis.details.secondary_intent == Some(Category::BillingRefund)
+    {
         review("refund_intent_ambiguous")
     } else {
         Refund {
@@ -80,6 +82,17 @@ pub fn evaluate(ticket: &Ticket, outcome: &AnalysisOutcome) -> TriageResult {
     };
 
     let needs_human = matches!(refund.decision, RefundDecision::ReviewRequired)
+        || analysis.details.secondary_intent.is_some_and(|category| {
+            matches!(
+                category,
+                Category::Cancellation
+                    | Category::AccountAccess
+                    | Category::Invoice
+                    | Category::ProductQuestion
+                    | Category::Other
+                    | Category::Fraud
+            )
+        })
         || matches!(
             category,
             Category::Cancellation
@@ -91,24 +104,15 @@ pub fn evaluate(ticket: &Ticket, outcome: &AnalysisOutcome) -> TriageResult {
         || (category == Category::BillingStatus
             && ticket.purchases.iter().any(|p| !settled(p.status)))
         || matches!(severity, Severity::High | Severity::Urgent);
-    let reply_draft = if fraud {
-        fraud_reply(analysis.language)
-    } else if injection_detected && !degraded && !invalid_ticket {
-        injection_reply(category, analysis.language)
-    } else if category == Category::BillingStatus
-        && uncertain
-        && !degraded
-        && !invalid_ticket
-        && !injection_detected
-    {
-        // The uncertain classification cannot authorize money, but billing
-        // facts can still help a human reconcile the customer's bank report.
-        billing_reply(ticket, analysis.language)
-    } else if uncertain || degraded || invalid_ticket {
-        clarification_reply(analysis.language)
-    } else {
-        reply(ticket, category, analysis.language, &refund)
-    };
+    let reply_draft = crate::reply::ReplyPlan::build(
+        ticket,
+        outcome,
+        &refund,
+        category,
+        severity,
+        injection_detected,
+    )
+    .render();
 
     TriageResult {
         ticket_id: ticket.id.clone(),
@@ -134,16 +138,23 @@ pub fn evaluate(ticket: &Ticket, outcome: &AnalysisOutcome) -> TriageResult {
 /// Called inside the persistence transaction when another ticket has already
 /// reserved the same purchase. This result authorizes zero additional money.
 pub fn mark_already_recorded(result: &mut TriageResult) {
-    let hinglish = result.reply_draft.starts_with("Aapka");
+    let language = result.meta.language.unwrap_or_else(|| {
+        if result.reply_draft.starts_with("Aapka") {
+            Language::Hinglish
+        } else {
+            Language::English
+        }
+    });
+    let reply = crate::reply::replace_approval_with_recorded(
+        &result.reply_draft,
+        language,
+        result.refund.amount_inr,
+    );
     result.refund.decision = RefundDecision::AlreadyRecorded;
     result.refund.amount_inr = 0;
     result.refund.reason = "approval_already_recorded_for_purchase".into();
     result.needs_human = true;
-    result.reply_draft = if hinglish {
-        "Aapka is payment ka refund approval pehle se recorded hai. Support agent ko payment processing ka status verify karna hoga."
-    } else {
-        "A refund approval for this payment is already recorded. A support agent needs to verify payment processing."
-    }.into();
+    result.reply_draft = reply;
 }
 
 fn settled(status: PurchaseStatus) -> bool {
@@ -227,104 +238,4 @@ fn detects_injection(content: &str) -> bool {
     ]
     .iter()
     .any(|signal| normalized.contains(signal))
-}
-
-fn clarification_reply(language: Language) -> String {
-    match language {
-        Language::English => "Please clarify what you need help with and share the relevant payment reference or error details. A support agent needs to review this request before any account or billing action can be confirmed.",
-        Language::Hinglish => "Aapko kis cheez mein help chahiye? Relevant payment reference ya error details share karein. Account ya billing action confirm karne se pehle support agent ko request review karni hogi.",
-    }.into()
-}
-
-fn fraud_reply(language: Language) -> String {
-    match language {
-        Language::English => "I am sorry these charges have caused concern for your family. This needs urgent human review as a possible unauthorized-payment case. Please contact your bank promptly about charges you do not recognize, and share payment dates and references with support, with sensitive details hidden. No refund or cancellation is confirmed by this reply.",
-        Language::Hinglish => "Aapke parivaar ko in charges se pareshani hui, iska afsos hai. Possible unauthorized payment ke liye urgent human review zaroori hai. Jin charges ko aap nahi pehchante unke liye bank se jaldi contact karein; payment dates aur references support ko sensitive details hide karke bhejein. Is reply se refund ya cancellation confirm nahi hota.",
-    }.into()
-}
-
-fn injection_reply(category: Category, language: Language) -> String {
-    match (category, language) {
-        (Category::AccountAccess, Language::English) => "Please confirm the sign-in method and describe which account history is missing, without sharing passwords or verification codes. A support agent needs to investigate the account link and history before restoration can be confirmed.",
-        (Category::AccountAccess, Language::Hinglish) => "Sign-in method aur kaunsi account history missing hai, batayein; password ya verification code share na karein. Restore confirm karne se pehle support agent ko account link aur history investigate karni hogi.",
-        (Category::ProductQuestion, Language::English) => "A support agent needs to verify the current plan features, including offline access. The available information does not confirm whether offline access is supported. Please describe which feature you would like to use.",
-        (Category::ProductQuestion, Language::Hinglish) => "Current plan ke features, including offline access, support agent ko verify karne honge. Available information se offline support confirm nahi hota. Aap kaunsa feature use karna chahte hain, batayein.",
-        (_, Language::English) => "A support agent needs to review your original support request. Please describe the help you need so the relevant issue can be investigated.",
-        (_, Language::Hinglish) => "Aapke original support request ko support agent ko review karna hoga. Kis cheez mein help chahiye, batayein taaki relevant issue investigate kiya ja sake.",
-    }.into()
-}
-
-fn reply(ticket: &Ticket, category: Category, language: Language, refund: &Refund) -> String {
-    if refund.decision == RefundDecision::Approved {
-        return match language {
-            Language::English => format!(
-                "Your Rs {} refund request is approved. Payment processing still needs confirmation; this reply does not confirm that the money has been returned.",
-                refund.amount_inr
-            ),
-            Language::Hinglish => format!(
-                "Aapka Rs {} refund request approved hai. Payment processing abhi confirm honi baaki hai; is reply se paisa wapas aane ka confirmation nahi hota.",
-                refund.amount_inr
-            ),
-        };
-    }
-    if refund.decision == RefundDecision::NotEligible {
-        return match language {
-            Language::English => "Trial payments are not refundable under this policy. If you mean a different charge, please share its payment reference for review.",
-            Language::Hinglish => "Trial payment is policy ke hisaab se refundable nahi hai. Agar aap kisi aur charge ki baat kar rahe hain, review ke liye uska payment reference share karein.",
-        }.into();
-    }
-    if refund.decision == RefundDecision::ReviewRequired {
-        return match language {
-            Language::English if category == Category::Technical => "I am sorry the app is not working for you. Your refund request needs human review; no refund decision is final yet. Please share your device, app version, and what happens when the problem occurs so support can investigate both the technical issue and refund request.",
-            Language::Hinglish if category == Category::Technical => "App kaam nahi kar raha, iska afsos hai. Aapka refund request human review maangta hai; final refund decision abhi nahi hua hai. Device, app version aur error details share karein taaki support technical problem aur refund request dono investigate kar sake.",
-            Language::English => "Your refund request needs human review of the payment history and circumstances. This is not a final refusal or a confirmation that a refund has been issued. Please share the payment reference and clarify which charge you want reviewed.",
-            Language::Hinglish => "Aapka refund request payment history aur situation ke human review ke liye hai. Yeh final mana karna ya refund issue hone ka confirmation nahi hai. Payment reference aur kaunsa charge review karwana hai, share karein.",
-        }.into();
-    }
-    match (category, language) {
-        (Category::BillingStatus, language) => billing_reply(ticket, language),
-        (Category::Cancellation, Language::English) => "Do you want to stop the next renewal, request a refund, or close your account? A support agent needs to confirm the intended action. Your subscription has not been confirmed cancelled by this reply.".into(),
-        (Category::Cancellation, Language::Hinglish) => "Aap next renewal rokna chahte hain, refund maang rahe hain, ya account close karna hai? Support agent ko intended action confirm karna hoga. Is reply se subscription cancellation confirm nahi hoti.".into(),
-        (Category::Technical, Language::English) => "I am sorry the app is not working correctly. Please share your app version and the steps that trigger the problem, including any error message. A support agent can use these details to investigate; a fix is not confirmed yet.".into(),
-        (Category::Technical, Language::Hinglish) => "App sahi kaam nahi kar raha, iska afsos hai. App version, problem ke steps aur error message share karein. In details se support agent investigate kar sakta hai; fix abhi confirm nahi hai.".into(),
-        (Category::AccountAccess, Language::English) => "Please confirm the sign-in method and describe what account data is missing, without sharing passwords or verification codes. A support agent needs to investigate the account link and history; restoration is not confirmed.".into(),
-        (Category::AccountAccess, Language::Hinglish) => "Sign-in method aur kaunsa account data missing hai, batayein; password ya verification code share na karein. Support agent ko account link aur history investigate karni hogi; restore hona confirm nahi hai.".into(),
-        (Category::FeatureRequest, Language::English) => "Thank you for suggesting this feature. A product team member can review the request. There is no confirmed availability or release date to share.".into(),
-        (Category::FeatureRequest, Language::Hinglish) => "Feature suggest karne ke liye shukriya. Product team ka member request review kar sakta hai. Abhi availability ya release date confirm nahi hai.".into(),
-        (Category::Invoice, Language::English) => "A support agent needs to verify the payment reference and billing details before an invoice can be provided. Please confirm those details through the support channel. This reply does not include or confirm an issued GST invoice.".into(),
-        (Category::Invoice, Language::Hinglish) => "Invoice dene se pehle support agent ko payment reference aur billing details verify karni hongi. Support channel par details confirm karein. Is reply mein issued GST invoice ka confirmation nahi hai.".into(),
-        (Category::ProductQuestion, Language::English) => "A support agent needs to verify the current plan features before confirming whether the app supports your use case, including offline access. Please share which feature you want to use.".into(),
-        (Category::ProductQuestion, Language::Hinglish) => "Offline access ya kisi feature ko confirm karne se pehle support agent ko current plan details verify karni hongi. Aap kaunsa feature use karna chahte hain, batayein.".into(),
-        _ => clarification_reply(language),
-    }
-}
-
-fn billing_reply(ticket: &Ticket, language: Language) -> String {
-    let renewals: Vec<_> = ticket
-        .purchases
-        .iter()
-        .filter(|p| p.kind == PurchaseKind::Renewal)
-        .collect();
-    let completed = renewals.iter().filter(|p| settled(p.status)).count();
-    let amount: u64 = renewals
-        .iter()
-        .filter(|p| settled(p.status))
-        .map(|p| u64::from(p.amount_inr))
-        .sum();
-    let failed = renewals
-        .iter()
-        .filter(|p| p.status == PurchaseStatus::Failed)
-        .count();
-    let initiated = renewals
-        .iter()
-        .filter(|p| p.status == PurchaseStatus::Initiated)
-        .count();
-    match language {
-        Language::English => format!(
-            "Billing records show {completed} completed renewal payment(s), totalling Rs {amount}, {failed} failed renewal attempt(s), and {initiated} initiated renewal attempt(s). These records do not establish the bank's final debit or reversal status. Please share the payment references or a statement with sensitive details hidden so a support agent can reconcile the charge and plan activation."
-        ),
-        Language::Hinglish => format!(
-            "Billing record mein {completed} completed renewal payment(s), total Rs {amount}, {failed} failed renewal attempt(s), aur {initiated} initiated renewal attempt(s) hain. Isse bank ka final debit ya reversal status confirm nahi hota. Sensitive details hide karke payment references ya statement bhejein, taaki support agent charge aur plan activation reconcile kar sake."
-        ),
-    }
 }

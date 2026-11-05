@@ -206,7 +206,25 @@ fn time_and_confidence_boundaries_are_inclusive() {
     let result = evaluate(&ticket, &analysis);
     assert_eq!(result.refund.amount_inr, 0);
     assert!(result.needs_human);
-    assert!(result.reply_draft.starts_with("Please clarify"));
+    assert!(
+        result
+            .reply_draft
+            .contains("refund request needs human review")
+    );
+}
+
+#[test]
+fn conflicting_secondary_refund_intent_requires_review_and_stays_in_reply() {
+    let mut analysis = outcome(Category::Technical, false);
+    analysis.analysis.details.secondary_intent = Some(Category::BillingRefund);
+    let result = evaluate(&tickets()[0], &analysis);
+    assert_eq!(result.refund.decision, RefundDecision::ReviewRequired);
+    assert_eq!(result.refund.amount_inr, 0);
+    assert!(
+        result
+            .reply_draft
+            .contains("refund request needs human review")
+    );
 }
 
 #[test]
@@ -291,7 +309,7 @@ fn both_settled_status_spellings_work_and_failed_history_is_not_a_second_payment
     assert!(
         result
             .reply_draft
-            .contains("1 completed renewal payment(s), totalling Rs 249, 1 failed")
+            .contains("1 completed renewal payment totalling Rs 249 and 1 failed")
     );
     assert!(
         result
@@ -312,7 +330,7 @@ fn uncertain_duplicate_charge_reply_preserves_trusted_billing_facts() {
     assert!(
         result
             .reply_draft
-            .contains("1 completed renewal payment(s), totalling Rs 249, 1 failed")
+            .contains("1 completed renewal payment totalling Rs 249 and 1 failed")
     );
     assert!(
         result
@@ -405,13 +423,18 @@ fn injection_replies_address_account_history_and_uncertain_offline_question() {
     let all = tickets();
     let mut account_analysis = outcome(Category::AccountAccess, false);
     account_analysis.analysis.confidence = 0.90;
+    account_analysis.analysis.details.reported =
+        vec![ReportedFact::GoogleSignIn, ReportedFact::MissingHistory];
     let account = evaluate(&all[2], &account_analysis);
-    assert!(account.reply_draft.contains("sign-in method"));
-    assert!(account.reply_draft.contains("account history is missing"));
+    assert!(
+        !account
+            .reply_draft
+            .contains("Please share your sign-in method")
+    );
     assert!(
         account
             .reply_draft
-            .contains("without sharing passwords or verification codes")
+            .contains("Google and finding your history missing")
     );
     assert!(
         account
@@ -421,6 +444,7 @@ fn injection_replies_address_account_history_and_uncertain_offline_question() {
 
     let mut product_analysis = outcome(Category::ProductQuestion, false);
     product_analysis.analysis.confidence = 0.78;
+    product_analysis.analysis.details.reported = vec![ReportedFact::OfflineAccess];
     let product = evaluate(&all[10], &product_analysis);
     assert!(
         product
@@ -460,7 +484,7 @@ fn fraud_has_urgent_empathetic_review_even_if_classifier_mislabels_it() {
     assert_eq!(result.severity, Severity::Urgent);
     assert!(result.needs_human);
     assert_eq!(result.refund.amount_inr, 0);
-    assert!(result.reply_draft.contains("concern for your family"));
+    assert!(result.reply_draft.contains("charges have caused concern"));
     assert!(result.reply_draft.contains("urgent human review"));
 }
 
