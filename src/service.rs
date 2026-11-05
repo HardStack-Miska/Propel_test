@@ -1,7 +1,24 @@
-use crate::{domain::{AnalysisSource, Ticket, TriageResult}, model::Analyzer, policy, store::{Lookup, Store}};
-use axum::{Json, Router, extract::{DefaultBodyLimit, State, rejection::JsonRejection}, http::{HeaderMap, HeaderValue, StatusCode}, response::{IntoResponse, Response}, routing::{get, post}};
+use crate::{
+    domain::{AnalysisSource, Ticket, TriageResult},
+    model::Analyzer,
+    policy,
+    store::{Lookup, Store},
+};
+use axum::{
+    Json, Router,
+    extract::{DefaultBodyLimit, State, rejection::JsonRejection},
+    http::{HeaderMap, HeaderValue, StatusCode},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+};
 use serde_json::json;
-use std::{sync::{Arc, atomic::{AtomicU64, Ordering}}, time::{Instant, SystemTime, UNIX_EPOCH}};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
 use tokio::sync::Semaphore;
 
 #[derive(Default)]
@@ -29,9 +46,15 @@ impl AppState {
     pub fn new(store: Store, analyzer: Analyzer, capacity: usize) -> Self {
         assert!(capacity > 0);
         Self {
-            store, analyzer, slots: Arc::new(Semaphore::new(capacity)),
-            metrics: Arc::new(Metrics::default()), sequence: Arc::new(AtomicU64::new(1)),
-            boot: SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos(),
+            store,
+            analyzer,
+            slots: Arc::new(Semaphore::new(capacity)),
+            metrics: Arc::new(Metrics::default()),
+            sequence: Arc::new(AtomicU64::new(1)),
+            boot: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos(),
         }
     }
 }
@@ -57,34 +80,69 @@ async fn metrics(State(state): State<AppState>) -> impl IntoResponse {
     }))
 }
 
-async fn triage(State(state): State<AppState>, payload: Result<Json<Ticket>, JsonRejection>) -> Response {
-    let request_id = format!("{:x}-{}", state.boot, state.sequence.fetch_add(1, Ordering::Relaxed));
+async fn triage(
+    State(state): State<AppState>,
+    payload: Result<Json<Ticket>, JsonRejection>,
+) -> Response {
+    let request_id = format!(
+        "{:x}-{}",
+        state.boot,
+        state.sequence.fetch_add(1, Ordering::Relaxed)
+    );
     let start = Instant::now();
     let response = handle(&state, payload, &request_id).await;
     // Deliberately no URI, input, payment/ticket identifier, headers, errors, or response text.
-    let error_code = response.extensions().get::<ErrorCode>().map(|code| code.0).unwrap_or("none");
-    tracing::info!(event = "triage_request", request_id, status = response.status().as_u16(), error_code, elapsed_ms = start.elapsed().as_millis() as u64);
+    let error_code = response
+        .extensions()
+        .get::<ErrorCode>()
+        .map(|code| code.0)
+        .unwrap_or("none");
+    tracing::info!(
+        event = "triage_request",
+        request_id,
+        status = response.status().as_u16(),
+        error_code,
+        elapsed_ms = start.elapsed().as_millis() as u64
+    );
     let mut response = response;
-    response.headers_mut().insert("x-request-id", HeaderValue::from_str(&request_id).expect("generated ASCII"));
+    response.headers_mut().insert(
+        "x-request-id",
+        HeaderValue::from_str(&request_id).expect("generated ASCII"),
+    );
     response
 }
 
-async fn handle(state: &AppState, payload: Result<Json<Ticket>, JsonRejection>, request_id: &str) -> Response {
+async fn handle(
+    state: &AppState,
+    payload: Result<Json<Ticket>, JsonRejection>,
+    request_id: &str,
+) -> Response {
     let ticket = match payload {
         Ok(Json(ticket)) => ticket,
         Err(rejection) => {
-            let status = if rejection.status() == StatusCode::PAYLOAD_TOO_LARGE { StatusCode::PAYLOAD_TOO_LARGE } else { StatusCode::BAD_REQUEST };
+            let status = if rejection.status() == StatusCode::PAYLOAD_TOO_LARGE {
+                StatusCode::PAYLOAD_TOO_LARGE
+            } else {
+                StatusCode::BAD_REQUEST
+            };
             return error(status, "invalid_ticket_json");
         }
     };
-    if let Err(code) = ticket.validate() { return error(StatusCode::BAD_REQUEST, code); }
+    if let Err(code) = ticket.validate() {
+        return error(StatusCode::BAD_REQUEST, code);
+    }
     let _slot = match state.slots.clone().try_acquire_owned() {
         Ok(slot) => slot,
         Err(_) => {
             state.metrics.overload.fetch_add(1, Ordering::Relaxed);
             let mut headers = HeaderMap::new();
             headers.insert("retry-after", HeaderValue::from_static("1"));
-            let mut response = (StatusCode::SERVICE_UNAVAILABLE, headers, Json(json!({"error":"service_busy","retryable":true}))).into_response();
+            let mut response = (
+                StatusCode::SERVICE_UNAVAILABLE,
+                headers,
+                Json(json!({"error":"service_busy","retryable":true})),
+            )
+                .into_response();
             response.extensions_mut().insert(ErrorCode("service_busy"));
             return response;
         }
@@ -97,8 +155,10 @@ async fn handle(state: &AppState, payload: Result<Json<Ticket>, JsonRejection>, 
             log_decision(request_id, &result, true);
             return Json(result).into_response();
         }
-        Ok(Ok(Lookup::Conflict)) => return error(StatusCode::CONFLICT, "ticket_id_payload_conflict"),
-        Ok(Ok(Lookup::Missing)) => {},
+        Ok(Ok(Lookup::Conflict)) => {
+            return error(StatusCode::CONFLICT, "ticket_id_payload_conflict");
+        }
+        Ok(Ok(Lookup::Missing)) => {}
         _ => return error(StatusCode::SERVICE_UNAVAILABLE, "storage_unavailable"),
     }
     let outcome = state.analyzer.analyze(&ticket).await;
@@ -112,7 +172,9 @@ async fn handle(state: &AppState, payload: Result<Json<Ticket>, JsonRejection>, 
                 if result.meta.source == AnalysisSource::Fallback {
                     state.metrics.degraded.fetch_add(1, Ordering::Relaxed);
                 }
-            } else { state.metrics.cache_hits.fetch_add(1, Ordering::Relaxed); }
+            } else {
+                state.metrics.cache_hits.fetch_add(1, Ordering::Relaxed);
+            }
             log_decision(request_id, &result, !inserted);
             Json(result).into_response()
         }
@@ -134,4 +196,3 @@ fn error(status: StatusCode, code: &'static str) -> Response {
     response.extensions_mut().insert(ErrorCode(code));
     response
 }
-

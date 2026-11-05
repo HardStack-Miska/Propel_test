@@ -1,10 +1,18 @@
 use anyhow::{Context, Result};
-use dhaba_triage::{model::Analyzer, service::{AppState, router}, store::Store};
+use dhaba_triage::{
+    model::Analyzer,
+    service::{AppState, router},
+    store::Store,
+};
 use std::{env, path::PathBuf, time::Duration};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt().json().with_target(false).with_max_level(tracing::Level::INFO).init();
+    tracing_subscriber::fmt()
+        .json()
+        .with_target(false)
+        .with_max_level(tracing::Level::INFO)
+        .init();
     let mode = env::var("TRIAGE_MODE").unwrap_or_else(|_| "replay".into());
     let analyzer = match mode.as_str() {
         "replay" => Analyzer::replay(),
@@ -20,19 +28,32 @@ async fn main() -> Result<()> {
     if let Some(parent) = db.parent().filter(|p| !p.as_os_str().is_empty()) {
         std::fs::create_dir_all(parent).context("create database directory")?;
     }
-    let app = router(AppState::new(Store::open(db)?, analyzer, positive_env("HTTP_CONCURRENCY", 64)?));
+    let app = router(AppState::new(
+        Store::open(db)?,
+        analyzer,
+        positive_env("HTTP_CONCURRENCY", 64)?,
+    ));
     let addr = env::var("TRIAGE_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".into());
-    let listener = tokio::net::TcpListener::bind(&addr).await.context("bind service")?;
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .context("bind service")?;
     tracing::info!(event = "service_started", mode);
-    axum::serve(listener, app).with_graceful_shutdown(async { let _ = tokio::signal::ctrl_c().await; }).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async {
+            let _ = tokio::signal::ctrl_c().await;
+        })
+        .await?;
     Ok(())
 }
 
 fn positive_env(name: &str, default: usize) -> Result<usize> {
     match env::var(name) {
-        Ok(value) => value.parse::<usize>().ok().filter(|v| *v > 0).with_context(|| format!("{name} must be a positive integer")),
+        Ok(value) => value
+            .parse::<usize>()
+            .ok()
+            .filter(|v| *v > 0)
+            .with_context(|| format!("{name} must be a positive integer")),
         Err(env::VarError::NotPresent) => Ok(default),
         Err(_) => anyhow::bail!("{name} must be valid UTF-8"),
     }
 }
-

@@ -93,10 +93,19 @@ pub fn evaluate(ticket: &Ticket, outcome: &AnalysisOutcome) -> TriageResult {
         || matches!(severity, Severity::High | Severity::Urgent);
     let reply_draft = if fraud {
         fraud_reply(analysis.language)
+    } else if injection_detected && !degraded && !invalid_ticket {
+        injection_reply(category, analysis.language)
+    } else if category == Category::BillingStatus
+        && uncertain
+        && !degraded
+        && !invalid_ticket
+        && !injection_detected
+    {
+        // The uncertain classification cannot authorize money, but billing
+        // facts can still help a human reconcile the customer's bank report.
+        billing_reply(ticket, analysis.language)
     } else if uncertain || degraded || invalid_ticket {
         clarification_reply(analysis.language)
-    } else if injection_detected {
-        injection_reply(analysis.language)
     } else {
         reply(ticket, category, analysis.language, &refund)
     };
@@ -231,10 +240,14 @@ fn fraud_reply(language: Language) -> String {
     }.into()
 }
 
-fn injection_reply(language: Language) -> String {
-    match language {
-        Language::English => "A support agent needs to review your original account or product question. Please share the relevant account issue or feature question. This reply does not confirm any refund, account restoration, or ticket resolution.",
-        Language::Hinglish => "Aapke original account ya product question ko support agent ko review karna hoga. Relevant account problem ya feature question share karein. Is reply se refund, account restore ya ticket resolution confirm nahi hota.",
+fn injection_reply(category: Category, language: Language) -> String {
+    match (category, language) {
+        (Category::AccountAccess, Language::English) => "Please confirm the sign-in method and describe which account history is missing, without sharing passwords or verification codes. A support agent needs to investigate the account link and history before restoration can be confirmed.",
+        (Category::AccountAccess, Language::Hinglish) => "Sign-in method aur kaunsi account history missing hai, batayein; password ya verification code share na karein. Restore confirm karne se pehle support agent ko account link aur history investigate karni hogi.",
+        (Category::ProductQuestion, Language::English) => "A support agent needs to verify the current plan features, including offline access. The available information does not confirm whether offline access is supported. Please describe which feature you would like to use.",
+        (Category::ProductQuestion, Language::Hinglish) => "Current plan ke features, including offline access, support agent ko verify karne honge. Available information se offline support confirm nahi hota. Aap kaunsa feature use karna chahte hain, batayein.",
+        (_, Language::English) => "A support agent needs to review your original support request. Please describe the help you need so the relevant issue can be investigated.",
+        (_, Language::Hinglish) => "Aapke original support request ko support agent ko review karna hoga. Kis cheez mein help chahiye, batayein taaki relevant issue investigate kiya ja sake.",
     }.into()
 }
 

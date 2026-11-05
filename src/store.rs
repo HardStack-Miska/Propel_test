@@ -1,4 +1,7 @@
-use crate::{domain::{hash_bytes, RefundDecision, Ticket, TriageResult}, policy};
+use crate::{
+    domain::{RefundDecision, Ticket, TriageResult, hash_bytes},
+    policy,
+};
 use anyhow::{Context, Result};
 use redb::{Database, ReadableTable, TableDefinition};
 use serde::{Deserialize, Serialize};
@@ -8,13 +11,22 @@ const RESULTS: TableDefinition<&str, &str> = TableDefinition::new("triage_result
 const REFUNDS: TableDefinition<&str, &str> = TableDefinition::new("refund_approvals_v1");
 
 #[derive(Clone)]
-pub struct Store { db: Arc<Database> }
+pub struct Store {
+    db: Arc<Database>,
+}
 
 #[derive(Debug)]
-pub enum Lookup { Missing, Found(TriageResult), Conflict }
+pub enum Lookup {
+    Missing,
+    Found(TriageResult),
+    Conflict,
+}
 
 #[derive(Serialize, Deserialize)]
-struct Record { fingerprint: String, result: TriageResult }
+struct Record {
+    fingerprint: String,
+    result: TriageResult,
+}
 
 #[derive(Serialize)]
 struct Approval<'a> {
@@ -28,7 +40,10 @@ impl Store {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let db = Database::create(path).context("open triage database")?;
         let tx = db.begin_write()?;
-        { tx.open_table(RESULTS)?; tx.open_table(REFUNDS)?; }
+        {
+            tx.open_table(RESULTS)?;
+            tx.open_table(REFUNDS)?;
+        }
         tx.commit()?;
         Ok(Self { db: Arc::new(db) })
     }
@@ -55,7 +70,11 @@ impl Store {
             }
             let mut refunds = tx.open_table(REFUNDS)?;
             if result.refund.decision == RefundDecision::Approved {
-                let purchase = result.refund.purchase_id.as_deref().context("approval requires payment")?;
+                let purchase = result
+                    .refund
+                    .purchase_id
+                    .as_deref()
+                    .context("approval requires payment")?;
                 let payment_key = hash_bytes(purchase.as_bytes());
                 let exists = refunds.get(payment_key.as_str())?.is_some();
                 if exists {
@@ -70,7 +89,10 @@ impl Store {
                     refunds.insert(payment_key.as_str(), approval.as_str())?;
                 }
             }
-            let record = serde_json::to_string(&Record { fingerprint: ticket.fingerprint(), result: result.clone() })?;
+            let record = serde_json::to_string(&Record {
+                fingerprint: ticket.fingerprint(),
+                result: result.clone(),
+            })?;
             results.insert(key.as_str(), record.as_str())?;
         }
         tx.commit()?;
@@ -82,6 +104,7 @@ fn decode(raw: &str, ticket: &Ticket) -> Result<Lookup> {
     let record: Record = serde_json::from_str(raw)?;
     Ok(if record.fingerprint == ticket.fingerprint() {
         Lookup::Found(record.result)
-    } else { Lookup::Conflict })
+    } else {
+        Lookup::Conflict
+    })
 }
-

@@ -27,26 +27,50 @@ pub struct Purchase {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PurchaseKind { Trial, Renewal }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PurchaseStatus { Initiated, Failed, Successful, Renewal }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Category {
-    BillingRefund, BillingStatus, Cancellation, Technical, AccountAccess,
-    FeatureRequest, Fraud, Invoice, ProductQuestion, Other,
+pub enum PurchaseKind {
+    Trial,
+    Renewal,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Severity { Low, Medium, High, Urgent }
+pub enum PurchaseStatus {
+    Initiated,
+    Failed,
+    Successful,
+    Renewal,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Language { English, Hinglish }
+pub enum Category {
+    BillingRefund,
+    BillingStatus,
+    Cancellation,
+    Technical,
+    AccountAccess,
+    FeatureRequest,
+    Fraud,
+    Invoice,
+    ProductQuestion,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Severity {
+    Low,
+    Medium,
+    High,
+    Urgent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Language {
+    English,
+    Hinglish,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -60,7 +84,11 @@ pub struct Analysis {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AnalysisSource { Replay, Ollama, Fallback }
+pub enum AnalysisSource {
+    Replay,
+    Ollama,
+    Fallback,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisOutcome {
@@ -72,7 +100,13 @@ pub struct AnalysisOutcome {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum RefundDecision { Approved, ReviewRequired, NotRequested, NotEligible, AlreadyRecorded }
+pub enum RefundDecision {
+    Approved,
+    ReviewRequired,
+    NotRequested,
+    NotEligible,
+    AlreadyRecorded,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Refund {
@@ -96,7 +130,9 @@ pub struct TriageResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Safety { pub injection_detected: bool }
+pub struct Safety {
+    pub injection_detected: bool,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultMeta {
@@ -108,17 +144,29 @@ pub struct ResultMeta {
 
 impl Ticket {
     pub fn validate(&self) -> Result<(), &'static str> {
-        if self.id.trim().is_empty() || self.id.len() > 128 { return Err("invalid_ticket_id"); }
-        if self.subject.trim().is_empty() || self.subject.len() > 512 { return Err("invalid_subject"); }
-        if self.body.trim().is_empty() || self.body.len() > 16_384 { return Err("invalid_body"); }
-        if self.purchases.len() > 128 { return Err("too_many_purchases"); }
+        if self.id.trim().is_empty() || self.id.len() > 128 {
+            return Err("invalid_ticket_id");
+        }
+        if self.subject.trim().is_empty() || self.subject.len() > 512 {
+            return Err("invalid_subject");
+        }
+        if self.body.trim().is_empty() || self.body.len() > 16_384 {
+            return Err("invalid_body");
+        }
+        if self.purchases.len() > 128 {
+            return Err("too_many_purchases");
+        }
         let mut ids = HashSet::new();
         for p in &self.purchases {
             if p.id.trim().is_empty() || p.id.len() > 128 || !ids.insert(&p.id) {
                 return Err("invalid_purchase_id");
             }
-            if p.amount_inr == 0 || p.amount_inr > 1_000_000 { return Err("invalid_amount"); }
-            if p.at > self.received_at { return Err("purchase_after_ticket"); }
+            if p.amount_inr == 0 || p.amount_inr > 1_000_000 {
+                return Err("invalid_amount");
+            }
+            if p.at > self.received_at {
+                return Err("purchase_after_ticket");
+            }
         }
         Ok(())
     }
