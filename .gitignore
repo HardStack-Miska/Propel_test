@@ -1,0 +1,13 @@
+/target/
+/.tools/
+/.runtime/
+*.redb
+*.redb.*
+.env
+.env.*
+!.env.example
+# Confidential inputs are supplied separately to evaluators.
+/*.pdf
+/dhaba_tickets.json
+/reports/
+

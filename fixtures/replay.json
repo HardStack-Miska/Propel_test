@@ -1,0 +1,86 @@
+{
+  "d14213c8a2860661831a9467717ca91e1fa3586ddfd1fa9dd89e7fd83800ec1b": {
+    "category": "billing_refund",
+    "severity": "high",
+    "language": "english",
+    "confidence": 0.97,
+    "refund_requested": true
+  },
+  "f34cbac688d45244c74531ebf4545d3311be885acf559fdd062121ff90779226": {
+    "category": "technical",
+    "severity": "high",
+    "language": "english",
+    "confidence": 0.97,
+    "refund_requested": false
+  },
+  "81cd6869ed30fa8f44037d8ed05547519b52062a7d39d1aa7956017707551d9f": {
+    "category": "account_access",
+    "severity": "medium",
+    "language": "english",
+    "confidence": 0.9,
+    "refund_requested": false
+  },
+  "8b36a8540fc0fd3a6a30afb353d10e57688e00cd1d0f7f2e8473da0a1295cf06": {
+    "category": "cancellation",
+    "severity": "low",
+    "language": "english",
+    "confidence": 0.65,
+    "refund_requested": false
+  },
+  "0f9afbce71c4b5a749c3dd1075f4320d07bb8d5a803f72f2c032881b6ba206b5": {
+    "category": "billing_status",
+    "severity": "high",
+    "language": "hinglish",
+    "confidence": 0.94,
+    "refund_requested": false
+  },
+  "d0cc6de26c2c7b1c507b4e0fa7095a536f32f9283b10774ba1e7be2830f4b8c2": {
+    "category": "billing_refund",
+    "severity": "high",
+    "language": "english",
+    "confidence": 0.93,
+    "refund_requested": true
+  },
+  "a2a88fd72908bb77d800159b881b8c8428fecbf47ebe5ef625de4bd3b2793718": {
+    "category": "feature_request",
+    "severity": "low",
+    "language": "english",
+    "confidence": 0.98,
+    "refund_requested": false
+  },
+  "975c46f7a655f45a73fc190518e35c7538429e883c286461cc9c6ebc1449db82": {
+    "category": "fraud",
+    "severity": "urgent",
+    "language": "english",
+    "confidence": 0.98,
+    "refund_requested": false
+  },
+  "d1af63d90f9db0487829edbb8d006d1a8f494848e9cfcf24330be57b7dc9f81a": {
+    "category": "billing_status",
+    "severity": "high",
+    "language": "english",
+    "confidence": 0.78,
+    "refund_requested": false
+  },
+  "7721b8f204549c898c7231a82d0b37ca15d3fa2d58d3cf64c1851ea7349cea6f": {
+    "category": "invoice",
+    "severity": "low",
+    "language": "english",
+    "confidence": 0.96,
+    "refund_requested": false
+  },
+  "d318c0aefab3fccc90ddb20594b13cc24cd4f34648eb5c53072f26471bc4c1e3": {
+    "category": "product_question",
+    "severity": "low",
+    "language": "english",
+    "confidence": 0.78,
+    "refund_requested": false
+  },
+  "ff9a6f1b0ece9e96809264aaaffed47c53857b378d45df1415e9109c3d0d44e4": {
+    "category": "billing_refund",
+    "severity": "medium",
+    "language": "english",
+    "confidence": 0.62,
+    "refund_requested": true
+  }
+}
