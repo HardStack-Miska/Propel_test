@@ -80,6 +80,9 @@ async fn metrics(State(state): State<AppState>) -> impl IntoResponse {
         "triage_degraded_ratio": if evaluated == 0 { 0.0 } else { degraded as f64 / evaluated as f64 },
         "triage_cache_hits_total": state.metrics.cache_hits.load(Ordering::Relaxed),
         "triage_http_overload_total": state.metrics.overload.load(Ordering::Relaxed),
+        "analysis_cache": state.analyzer.cache_statistics(),
+        "model_usage": state.analyzer.usage_totals(),
+        "model_budget": state.analyzer.budget_snapshot(),
     }))
 }
 
@@ -207,6 +210,11 @@ fn log_decision(request_id: &str, result: &TriageResult, cached: bool) {
     tracing::info!(event = "triage_decision", request_id, cached,
         category = ?result.category, decision = ?result.refund.decision,
         source = ?result.meta.source, attempts = result.meta.model_attempts,
+        analysis_cached = result.meta.analysis_cached,
+        provider_calls = if cached { 0 } else { result.meta.usage.calls },
+        prompt_tokens = if cached { 0 } else { result.meta.usage.prompt_tokens },
+        completion_tokens = if cached { 0 } else { result.meta.usage.completion_tokens },
+        estimated_cost_nano_usd = if cached { 0 } else { result.meta.usage.estimated_cost_nano_usd },
         degraded_reason = result.meta.degraded_reason.as_deref().unwrap_or("none"),
         needs_human = result.needs_human);
 }

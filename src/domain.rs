@@ -80,6 +80,73 @@ pub struct Analysis {
     pub language: Language,
     pub confidence: f64,
     pub refund_requested: bool,
+    #[serde(default)]
+    pub details: AnalysisDetails,
+}
+
+/// These are predictions about the customer's words, never verified account
+/// state or authority to perform an action. No free text crosses this boundary.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AnalysisDetails {
+    #[serde(default)]
+    pub secondary_intent: Option<Category>,
+    #[serde(default)]
+    pub reported: Vec<ReportedFact>,
+    #[serde(default)]
+    pub missing: Vec<MissingDetail>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReportedFact {
+    GoogleSignIn,
+    PhoneSignIn,
+    EmailSignIn,
+    DeviceProvided,
+    AppVersionProvided,
+    ErrorDetailsProvided,
+    MissingHistory,
+    Crash,
+    BillingDetailsProvided,
+    PaymentReferenceProvided,
+    OfflineAccess,
+    CancellationExplicit,
+    RefundExplicit,
+    AutopayDisabled,
+    BankDebitReported,
+    TwoDebitsReported,
+    RestartTried,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MissingDetail {
+    CancellationTarget,
+    TechnicalSymptom,
+    Device,
+    AppVersion,
+    ErrorDetails,
+    SignInMethod,
+    MissingAccountData,
+    PaymentReference,
+    BillingDetails,
+    RequestedFeature,
+    RequestGoal,
+}
+
+impl Analysis {
+    pub fn validate(&self) -> bool {
+        self.confidence.is_finite()
+            && (0.0..=1.0).contains(&self.confidence)
+            && self.details.reported.len() <= 8
+            && self.details.missing.len() <= 4
+            && self.details.reported.iter().collect::<HashSet<_>>().len()
+                == self.details.reported.len()
+            && self.details.missing.iter().collect::<HashSet<_>>().len()
+                == self.details.missing.len()
+            && self.details.secondary_intent != Some(self.category)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,6 +154,7 @@ pub struct Analysis {
 pub enum AnalysisSource {
     Replay,
     Ollama,
+    Deepseek,
     Fallback,
 }
 
@@ -96,6 +164,10 @@ pub struct AnalysisOutcome {
     pub source: AnalysisSource,
     pub attempts: u8,
     pub degraded_reason: Option<String>,
+    #[serde(default)]
+    pub usage: crate::deepseek::UsageTotals,
+    #[serde(default)]
+    pub cached: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -140,6 +212,12 @@ pub struct ResultMeta {
     pub model_attempts: u8,
     pub degraded_reason: Option<String>,
     pub policy_version: String,
+    #[serde(default)]
+    pub usage: crate::deepseek::UsageTotals,
+    #[serde(default)]
+    pub analysis_cached: bool,
+    #[serde(default)]
+    pub language: Option<Language>,
 }
 
 impl Ticket {

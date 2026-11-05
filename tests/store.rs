@@ -26,10 +26,13 @@ fn decision(ticket: &Ticket) -> TriageResult {
                 language: Language::English,
                 confidence: 0.99,
                 refund_requested: true,
+                details: Default::default(),
             },
             source: AnalysisSource::Replay,
             attempts: 0,
             degraded_reason: None,
+            usage: Default::default(),
+            cached: false,
         },
     )
 }

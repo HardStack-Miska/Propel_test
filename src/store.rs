@@ -16,6 +16,9 @@ pub struct Store {
 }
 
 #[derive(Debug)]
+// Results are returned by value, not collected into arrays of mixed variants.
+// Boxing would add an allocation to every successful lookup for little benefit.
+#[allow(clippy::large_enum_variant)]
 pub enum Lookup {
     Missing,
     Found(TriageResult),

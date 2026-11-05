@@ -299,7 +299,9 @@ async fn busy_model_falls_back_immediately_without_queueing() {
         .await
         .unwrap();
     let started = tokio::time::Instant::now();
-    let busy = analyzer.analyze(&ticket()).await;
+    let mut other = ticket();
+    other.body.push_str(" A distinct synthetic issue.");
+    let busy = analyzer.analyze(&other).await;
     assert_eq!(busy.degraded_reason.as_deref(), Some("model_busy"));
     assert_eq!(busy.attempts, 0);
     assert!(started.elapsed() < Duration::from_millis(100));
@@ -404,4 +406,127 @@ fn local_model_configuration_rejects_remote_hosts_and_sensitive_url_parts() {
     assert!(Analyzer::ollama("http://127.0.0.1:11434", "test", 0, Duration::from_secs(1)).is_err());
     assert!(Analyzer::ollama("http://localhost:11434", "test", 1, Duration::ZERO).is_err());
     assert!(Analyzer::ollama("http://[::1]:11434", "test", 1, Duration::from_secs(1)).is_ok());
+}
+
+#[tokio::test]
+async fn identical_text_across_tickets_coalesces_into_one_model_call() {
+    let server = MockServer::start(vec![Scripted::content(&valid_analysis()).delayed(150)]).await;
+    let analyzer = server.analyzer(Duration::from_secs(2));
+    let mut tasks = Vec::new();
+    for index in 0..8 {
+        let analyzer = analyzer.clone();
+        let mut input = ticket();
+        input.id = format!("synthetic-coalesced-{index}");
+        tasks.push(tokio::spawn(async move { analyzer.analyze(&input).await }));
+    }
+    let mut attempts = 0;
+    let mut reused = 0;
+    for task in tasks {
+        let outcome = task.await.unwrap();
+        assert_eq!(outcome.source, AnalysisSource::Ollama);
+        attempts += outcome.attempts;
+        if outcome.cached {
+            reused += 1;
+            assert_eq!(outcome.attempts, 0);
+            assert_eq!(outcome.usage.calls, 0);
+        }
+    }
+    assert_eq!(server.hits(), 1);
+    assert_eq!(attempts, 1);
+    assert_eq!(reused, 7);
+    let statistics = analyzer.cache_statistics();
+    assert_eq!(statistics.misses, 1);
+    assert_eq!(statistics.hits + statistics.coalesced, 7);
+    assert_eq!(statistics.entries, 1);
+}
+
+#[tokio::test]
+async fn changed_text_misses_the_cache_and_failed_analyses_are_not_retained() {
+    let server = MockServer::start(vec![
+        Scripted::content("invalid"),
+        Scripted::content("invalid"),
+        Scripted::content(&valid_analysis()),
+        Scripted::content(&valid_analysis()),
+    ])
+    .await;
+    let analyzer = server.analyzer(Duration::from_secs(2));
+    let failed = analyzer.analyze(&ticket()).await;
+    assert_eq!(failed.source, AnalysisSource::Fallback);
+    assert_eq!(analyzer.cache_statistics().entries, 0);
+    let recovered = analyzer.analyze(&ticket()).await;
+    assert_eq!(recovered.source, AnalysisSource::Ollama);
+    assert!(!recovered.cached);
+    assert_eq!(server.hits(), 3);
+    let hit = analyzer.analyze(&ticket()).await;
+    assert!(hit.cached);
+    assert_eq!(hit.attempts, 0);
+    let mut changed = ticket();
+    changed.body.push(' ');
+    assert!(!analyzer.analyze(&changed).await.cached);
+    assert_eq!(server.hits(), 4);
+}
+
+#[tokio::test]
+async fn cached_classification_recomputes_refund_from_each_tickets_billing() {
+    use dhaba_triage::{
+        domain::{Purchase, PurchaseKind, PurchaseStatus, RefundDecision},
+        policy,
+    };
+    let refund_analysis =
+        json!({"category":"billing_refund","severity":"high","language":"english",
+        "confidence":0.99,"refund_requested":true})
+        .to_string();
+    let server = MockServer::start(vec![Scripted::content(&refund_analysis)]).await;
+    let analyzer = server.analyzer(Duration::from_secs(2));
+    let mut first = ticket();
+    first.subject = "Synthetic monthly refund".into();
+    first.body = "Please refund my monthly payment.".into();
+    first.purchases.push(Purchase {
+        id: "synthetic-monthly-payment".into(),
+        kind: PurchaseKind::Renewal,
+        amount_inr: 249,
+        status: PurchaseStatus::Successful,
+        at: first.received_at - chrono::Duration::hours(1),
+    });
+    let first_outcome = analyzer.analyze(&first).await;
+    let first_result = policy::evaluate(&first, &first_outcome);
+    assert_eq!(first_result.refund.decision, RefundDecision::Approved);
+    let mut second = first.clone();
+    second.id = "different-synthetic-ticket".into();
+    second.purchases.clear();
+    let second_outcome = analyzer.analyze(&second).await;
+    assert!(second_outcome.cached);
+    assert_eq!(second_outcome.attempts, 0);
+    assert_eq!(second_outcome.usage.calls, 0);
+    let second_result = policy::evaluate(&second, &second_outcome);
+    assert_ne!(second_result.refund.decision, RefundDecision::Approved);
+    assert_eq!(second_result.refund.amount_inr, 0);
+    assert_eq!(server.hits(), 1);
+}
+
+#[tokio::test]
+async fn explicit_namespace_and_disabled_cache_do_not_reuse_entries() {
+    use dhaba_triage::cache::CacheConfig;
+    let server = MockServer::start(vec![
+        Scripted::content(&valid_analysis()),
+        Scripted::content(&valid_analysis()),
+        Scripted::content(&valid_analysis()),
+        Scripted::content(&valid_analysis()),
+    ])
+    .await;
+    let analyzer = server
+        .analyzer(Duration::from_secs(2))
+        .with_cache("tenant-a", CacheConfig::default())
+        .unwrap();
+    assert!(!analyzer.analyze(&ticket()).await.cached);
+    assert!(analyzer.analyze(&ticket()).await.cached);
+    let other = analyzer
+        .clone()
+        .with_cache("tenant-b", CacheConfig::default())
+        .unwrap();
+    assert!(!other.analyze(&ticket()).await.cached);
+    let disabled = analyzer.without_cache();
+    assert!(!disabled.analyze(&ticket()).await.cached);
+    assert!(!disabled.analyze(&ticket()).await.cached);
+    assert_eq!(server.hits(), 4);
 }

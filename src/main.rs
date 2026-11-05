@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
 use dhaba_triage::{
-    model::Analyzer,
+    config::Config,
     service::{AppState, router},
     store::Store,
 };
-use std::{env, path::PathBuf, time::Duration};
+use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -13,27 +13,19 @@ async fn main() -> Result<()> {
         .with_target(false)
         .with_max_level(tracing::Level::INFO)
         .init();
-    let mode = env::var("TRIAGE_MODE").unwrap_or_else(|_| "replay".into());
-    let analyzer = match mode.as_str() {
-        "replay" => Analyzer::replay(),
-        "ollama" => Analyzer::ollama(
-            &env::var("OLLAMA_URL").unwrap_or_else(|_| "http://127.0.0.1:11434".into()),
-            &env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:3b".into()),
-            positive_env("MODEL_CONCURRENCY", 4)?,
-            Duration::from_millis(positive_env("MODEL_TIMEOUT_MS", 8000)? as u64),
-        )?,
-        _ => anyhow::bail!("TRIAGE_MODE must be replay or ollama"),
-    };
-    let db = PathBuf::from(env::var("TRIAGE_DB").unwrap_or_else(|_| ".runtime/triage.redb".into()));
+    let config = Config::load()?;
+    let mode = config.get("TRIAGE_MODE", "replay")?;
+    let analyzer = config.analyzer()?;
+    let db = PathBuf::from(config.get("TRIAGE_DB", ".runtime/triage.redb")?);
     if let Some(parent) = db.parent().filter(|p| !p.as_os_str().is_empty()) {
         std::fs::create_dir_all(parent).context("create database directory")?;
     }
     let app = router(AppState::new(
         Store::open(db)?,
         analyzer,
-        positive_env("HTTP_CONCURRENCY", 64)?,
+        usize::try_from(config.positive("HTTP_CONCURRENCY", 64)?)?,
     ));
-    let addr = env::var("TRIAGE_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".into());
+    let addr = config.get("TRIAGE_ADDR", "127.0.0.1:3000")?;
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .context("bind service")?;
@@ -44,16 +36,4 @@ async fn main() -> Result<()> {
         })
         .await?;
     Ok(())
-}
-
-fn positive_env(name: &str, default: usize) -> Result<usize> {
-    match env::var(name) {
-        Ok(value) => value
-            .parse::<usize>()
-            .ok()
-            .filter(|v| *v > 0)
-            .with_context(|| format!("{name} must be a positive integer")),
-        Err(env::VarError::NotPresent) => Ok(default),
-        Err(_) => anyhow::bail!("{name} must be valid UTF-8"),
-    }
 }

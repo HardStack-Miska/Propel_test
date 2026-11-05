@@ -124,6 +124,9 @@ pub fn evaluate(ticket: &Ticket, outcome: &AnalysisOutcome) -> TriageResult {
             model_attempts: outcome.attempts,
             degraded_reason: outcome.degraded_reason.clone(),
             policy_version: POLICY_VERSION.into(),
+            usage: outcome.usage.clone(),
+            analysis_cached: outcome.cached,
+            language: Some(analysis.language),
         },
     }
 }

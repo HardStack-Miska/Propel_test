@@ -154,10 +154,13 @@ fn outcome(category: Category, refund_requested: bool) -> AnalysisOutcome {
             language: Language::English,
             confidence: 0.95,
             refund_requested,
+            details: Default::default(),
         },
         source: AnalysisSource::Replay,
         attempts: 0,
         degraded_reason: None,
+        usage: Default::default(),
+        cached: false,
     }
 }
 
