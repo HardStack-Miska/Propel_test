@@ -365,11 +365,12 @@ impl Ollama {
         {
             return Err(ModelError::Invalid);
         }
-        let analysis: Analysis =
+        let mut analysis: Analysis =
             serde_json::from_str(&envelope.message.content).map_err(|_| ModelError::Invalid)?;
         if !analysis.validate() {
             return Err(ModelError::Invalid);
         }
+        analysis.normalize_details();
         Ok(analysis)
     }
 }

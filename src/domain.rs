@@ -147,6 +147,50 @@ impl Analysis {
                 == self.details.missing.len()
             && self.details.secondary_intent != Some(self.category)
     }
+
+    /// Resolve contradictory clarification flags using only existing typed
+    /// evidence. This neither reads customer text nor adds facts or authority.
+    /// Providers call this after validating the original output's shape/limits.
+    pub fn normalize_details(&mut self) {
+        let reported = &self.details.reported;
+        self.details.missing.retain(|missing| {
+            let provided = match missing {
+                MissingDetail::Device => reported.contains(&ReportedFact::DeviceProvided),
+                MissingDetail::AppVersion => reported.contains(&ReportedFact::AppVersionProvided),
+                MissingDetail::PaymentReference => {
+                    reported.contains(&ReportedFact::PaymentReferenceProvided)
+                }
+                MissingDetail::BillingDetails => {
+                    reported.contains(&ReportedFact::BillingDetailsProvided)
+                }
+                MissingDetail::SignInMethod => reported.iter().any(|fact| {
+                    matches!(
+                        fact,
+                        ReportedFact::GoogleSignIn
+                            | ReportedFact::PhoneSignIn
+                            | ReportedFact::EmailSignIn
+                    )
+                }),
+                MissingDetail::MissingAccountData => {
+                    reported.contains(&ReportedFact::MissingHistory)
+                }
+                MissingDetail::ErrorDetails | MissingDetail::TechnicalSymptom => {
+                    reported.iter().any(|fact| {
+                        matches!(
+                            fact,
+                            ReportedFact::ErrorDetailsProvided | ReportedFact::Crash
+                        )
+                    })
+                }
+                MissingDetail::CancellationTarget => {
+                    reported.contains(&ReportedFact::CancellationExplicit)
+                }
+                MissingDetail::RequestedFeature => reported.contains(&ReportedFact::OfflineAccess),
+                MissingDetail::RequestGoal => false,
+            };
+            !provided
+        });
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -261,4 +305,91 @@ impl Ticket {
 
 pub fn hash_bytes(value: &[u8]) -> String {
     format!("{:x}", Sha256::digest(value))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn analysis(reported: Vec<ReportedFact>, missing: Vec<MissingDetail>) -> Analysis {
+        Analysis {
+            category: Category::Technical,
+            severity: Severity::High,
+            language: Language::Hinglish,
+            confidence: 0.91,
+            refund_requested: false,
+            details: AnalysisDetails {
+                secondary_intent: Some(Category::Cancellation),
+                reported,
+                missing,
+            },
+        }
+    }
+
+    #[test]
+    fn normalization_removes_only_missing_details_answered_by_typed_evidence() {
+        use MissingDetail as M;
+        use ReportedFact as R;
+        for (reported, missing) in [
+            (R::DeviceProvided, M::Device),
+            (R::AppVersionProvided, M::AppVersion),
+            (R::PaymentReferenceProvided, M::PaymentReference),
+            (R::BillingDetailsProvided, M::BillingDetails),
+            (R::GoogleSignIn, M::SignInMethod),
+            (R::PhoneSignIn, M::SignInMethod),
+            (R::EmailSignIn, M::SignInMethod),
+            (R::MissingHistory, M::MissingAccountData),
+            (R::ErrorDetailsProvided, M::ErrorDetails),
+            (R::ErrorDetailsProvided, M::TechnicalSymptom),
+            (R::Crash, M::ErrorDetails),
+            (R::Crash, M::TechnicalSymptom),
+            (R::CancellationExplicit, M::CancellationTarget),
+            (R::OfflineAccess, M::RequestedFeature),
+        ] {
+            let mut value = analysis(vec![reported], vec![missing, M::RequestGoal]);
+            assert!(value.validate());
+            value.normalize_details();
+            assert_eq!(value.details.reported, vec![reported]);
+            assert_eq!(value.details.missing, vec![M::RequestGoal]);
+            assert!(value.validate());
+        }
+    }
+
+    #[test]
+    fn normalization_is_idempotent_and_does_not_change_decision_authority() {
+        let mut value = analysis(
+            vec![ReportedFact::MissingHistory, ReportedFact::EmailSignIn],
+            vec![
+                MissingDetail::MissingAccountData,
+                MissingDetail::SignInMethod,
+                MissingDetail::AppVersion,
+            ],
+        );
+        let before = value.clone();
+        value.normalize_details();
+        let once = serde_json::to_value(&value).unwrap();
+        value.normalize_details();
+        assert_eq!(serde_json::to_value(&value).unwrap(), once);
+        assert_eq!(value.category, before.category);
+        assert_eq!(value.severity, before.severity);
+        assert_eq!(value.language, before.language);
+        assert_eq!(value.confidence, before.confidence);
+        assert_eq!(value.refund_requested, before.refund_requested);
+        assert_eq!(
+            value.details.secondary_intent,
+            before.details.secondary_intent
+        );
+        assert_eq!(value.details.reported, before.details.reported);
+        assert_eq!(value.details.missing, vec![MissingDetail::AppVersion]);
+
+        let mut no_evidence = analysis(
+            Vec::new(),
+            vec![MissingDetail::Device, MissingDetail::ErrorDetails],
+        );
+        no_evidence.refund_requested = true;
+        let before = serde_json::to_value(&no_evidence).unwrap();
+        no_evidence.normalize_details();
+        assert_eq!(serde_json::to_value(&no_evidence).unwrap(), before);
+        assert!(no_evidence.details.reported.is_empty());
+    }
 }
