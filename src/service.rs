@@ -13,8 +13,9 @@ use axum::{
 };
 use serde_json::json;
 use std::{
+    collections::HashMap,
     sync::{
-        Arc,
+        Arc, Mutex, Weak,
         atomic::{AtomicU64, Ordering},
     },
     time::{Instant, SystemTime, UNIX_EPOCH},
@@ -40,6 +41,7 @@ pub struct AppState {
     metrics: Arc<Metrics>,
     sequence: Arc<AtomicU64>,
     boot: u128,
+    ticket_locks: Arc<Mutex<HashMap<String, Weak<tokio::sync::Mutex<()>>>>>,
 }
 
 impl AppState {
@@ -51,6 +53,7 @@ impl AppState {
             slots: Arc::new(Semaphore::new(capacity)),
             metrics: Arc::new(Metrics::default()),
             sequence: Arc::new(AtomicU64::new(1)),
+            ticket_locks: Arc::new(Mutex::new(HashMap::new())),
             boot: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
@@ -149,6 +152,23 @@ async fn handle(
     };
     let store = state.store.clone();
     let lookup_ticket = ticket.clone();
+    // Share one analysis for concurrent deliveries of a ticket. A weak map
+    // retains no ticket text and is pruned on acquisition, so completed tickets
+    // cannot accumulate. HTTP slots bound the number of live owners/waiters.
+    let ticket_lock = {
+        let mut locks = state.ticket_locks.lock().expect("ticket lock registry");
+        locks.retain(|_, lock| lock.strong_count() > 0);
+        let key = crate::domain::hash_bytes(ticket.id.as_bytes());
+        match locks.get(&key).and_then(Weak::upgrade) {
+            Some(lock) => lock,
+            None => {
+                let lock = Arc::new(tokio::sync::Mutex::new(()));
+                locks.insert(key, Arc::downgrade(&lock));
+                lock
+            }
+        }
+    };
+    let _ticket_guard = ticket_lock.lock_owned().await;
     match tokio::task::spawn_blocking(move || store.lookup(&lookup_ticket)).await {
         Ok(Ok(Lookup::Found(result))) => {
             state.metrics.cache_hits.fetch_add(1, Ordering::Relaxed);
