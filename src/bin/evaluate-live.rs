@@ -2,8 +2,8 @@
 //! check results, and aggregate usage leave this process through the report.
 
 use dhaba_triage::{
-    config::evaluation_analyzer_from_env,
-    deepseek::{BudgetSnapshot, UsageTotals},
+    config::{Config, evaluation_analyzer_from_env},
+    deepseek::{BudgetSnapshot, SYSTEM_PROMPT, UsageTotals},
     domain::*,
     model::Analyzer,
     policy,
@@ -112,6 +112,10 @@ struct CheckTotal {
 struct LiveReport {
     mode: &'static str,
     dataset: &'static str,
+    recorded_at_utc: String,
+    requested_model: String,
+    prompt_sha256: String,
+    analysis_schema_version: u8,
     case_count: usize,
     fully_passed_cases: usize,
     checks: BTreeMap<&'static str, CheckTotal>,
@@ -202,6 +206,9 @@ async fn run() -> Result<(Report, bool), &'static str> {
     // reservations to at most 100 calls / $1, respecting any lower caller cap.
     let analyzer = evaluation_analyzer_from_env()
         .map_err(|_| "deepseek_evaluation_configuration_unavailable")?;
+    let requested_model = Config::load()
+        .and_then(|config| config.get("DEEPSEEK_MODEL", "deepseek-flash"))
+        .map_err(|_| "deepseek_evaluation_configuration_unavailable")?;
     let initial = analyzer
         .budget_snapshot()
         .ok_or("live_evaluation_requires_deepseek")?;
@@ -258,6 +265,10 @@ async fn run() -> Result<(Report, bool), &'static str> {
         Report::Live(Box::new(LiveReport {
             mode: "live_deepseek",
             dataset: "invented_support_cases_v1",
+            recorded_at_utc: chrono::Utc::now().to_rfc3339(),
+            requested_model,
+            prompt_sha256: hash_bytes(SYSTEM_PROMPT.as_bytes()),
+            analysis_schema_version: 2,
             case_count: reports.len(),
             fully_passed_cases,
             checks,
