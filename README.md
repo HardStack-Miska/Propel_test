@@ -1,6 +1,6 @@
 # Dhaba support triage
 
-Rust solution for assessment tasks 1–3, using Axum, redb and a bounded DeepSeek or local Ollama classifier. The selected track for task 3 is **backend**. Task 4 is pending.
+Rust solution for assessment tasks 1–3, using Axum, redb and a bounded DeepSeek or local Ollama classifier. The selected track for task 3 is **backend**. Task 4 below documents AI use and the status of the requested hand-written contribution.
 
 The classifier extracts intent and reported context. Rust validates that output, applies refund rules, composes an English or Hinglish reply, and atomically records the result and any refund approval. This is a triage and draft service: it does not send replies, execute payments, cancel subscriptions or restore accounts.
 
@@ -339,4 +339,38 @@ Responses from the triage handler carry a generated `x-request-id`, also present
 3. Check provider reachability/quota, configured budgets and schema version. Reproduce with a synthetic case or a private authorized export.
 4. After recovery, append a review with the original payload and the existing ledger. Keep the original result and payment history intact.
 
-The code and README cover tasks 1–3. The separate account of AI use required by task 4 remains to be completed.
+## Task 4 — how AI was used
+
+### Agents and approximate contribution
+
+I used **Codex (Astra)**, with delegated agents for implementation, policy/provider/reply review, regression testing and evaluation. DeepSeek Flash is the application's runtime classifier; its role is separate from the coding agents.
+
+In the work recorded in this session, essentially all implementation and automated test code was written or edited by agents: **approximately 100% agent-authored code**. This is a workflow estimate, not a measured attribution of individual lines. My contribution was defining and revising requirements, setting priorities, asking for real-model and adversarial checks, reviewing the proposed behavior, and correcting the initial English-only assumption after revisiting the supplied languages. The agents also performed technical audits; those audits are included in their contribution.
+
+### Selected prompt (edited English translation)
+
+The following is an edited English translation of one actual prompt from the testing iteration. At this stage I asked for English-only behavior; I later corrected that requirement to English and Hinglish, matching the supplied inbox.
+
+> Fix the findings in priority order and expand the evaluation with 10–100 varied synthetic support messages. At this stage, keep ordinary requests and replies in English, while including other languages as negative cases. Test invalid and negative numerical values, prompt injections, database-injection strings, and attempts to manipulate execution. Verify that DeepSeek has no capability to access the database, delete application code, or stop processes. Check these boundaries with tests.
+
+### An agent error: refunding the wrong payment
+
+An earlier agent-written money gate could approve the monthly renewal when the customer requested only the trial fee. A real DeepSeek evaluation on an invented ticket explicitly asked to return **only the Rs 1 trial and keep the Rs 249 subscription**. The classifier correctly identified a refund request, but the Rust gate approved **Rs 249**. This was an eligibility approval in the test service, not an executed transfer.
+
+The failure was in the contract between classification and policy: `refund_requested=true` did not express **which payment** the customer wanted refunded. At commit `1c4fce2`, `evaluate_refund(ticket)` selected the latest renewal using billing records and never received the requested scope. Its amount checks were insufficient because the selected payment was the wrong one.
+
+Adversarial inspection exposed the problem in both an additional failing test and a live-model synthetic case. In response, the agent implementation added a bounded `RefundTarget` enum and changed the Rust gate to match that target before checking billing eligibility. A trial-only request now returns `not_eligible`, amount `0`, and no purchase ID under this project's stated trial policy; it cannot substitute an eligible subscription payment. Ambiguous, all-payment and older-payment targets require review.
+
+The correction and regression test were committed together in `746f90b`. See [the scope gate](src/policy.rs), [the selective-trial regression](tests/inspection.rs), and [the additional target-boundary tests](tests/policy.rs). The regression checks the decision, zero authorized amount and absence of a selected payment. Subsequent real-model synthetic testing also exercised trial-only scope successfully. Both the correction and the regression were produced in the agent workflow.
+
+### Manual contribution and hand-written code
+
+I did not write implementation or test code by hand. My manual contribution was defining requirements, setting priorities and visually reviewing the key parts of the implementation and their proposed behavior:
+
+- **Refund rules and payment selection:** [the Rust policy](src/policy.rs), including the requested refund target, amount and eligibility checks, human-review decisions, and the trial-versus-subscription correction described above.
+- **Core architecture and the model boundary:** [the domain types](src/domain.rs), [classification and validation](src/model.rs), and [the DeepSeek adapter](src/deepseek.rs). The model supplies bounded analysis; Rust owns financial decisions, and the model has no database, filesystem or process-control tools.
+- **Persistence, duplicate requests and concurrency:** [the store](src/store.rs) and [request handling](src/service.rs), including atomic result/approval writes, preventing a second approval of the same payment, and the duplicate-request race correction.
+- **Customer replies:** [the renderer](src/reply.rs), including English/Hinglish behavior, preserving multiple customer requests, asking for missing information, and avoiding claims that a payment, cancellation or account change has already been executed.
+- **Verification and failure behavior:** the [regression and boundary tests](tests/), [live-evaluation tooling](src/bin/evaluate-live.rs) and [local load demonstration](scripts/load-demo.py), including adversarial messages, invalid input and safe fallback when model output is unusable.
+
+Where review or test results raised concerns, I asked the agents to make corrections and reviewed the proposed changes. I kept code I considered suitable for the assessment. The detailed technical audits, implementation of fixes and automated tests were performed by agents; the review described here does not provide the separate hand-written-code example requested in the brief.
