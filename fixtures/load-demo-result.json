@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "scenario": "local_mock_outage_degradation",
+  "recorded_at_utc": "2026-11-06T03:50:44.010978+00:00",
+  "service_binary_sha256": "a79e940d47bdec1056e3c544fb2e97cbdef8a7b890d1c01c7b067ccb15b96a74",
+  "script_sha256": "1e97324e3390b02616857cb8ea8e22203702c0f499aaa6c9afa95ef6b32e654d",
+  "external_api_calls": 0,
+  "external_api_cost_usd": 0,
+  "mock_latency_ms": 1000,
+  "configured_model_concurrency": 4,
+  "configured_http_concurrency": 64,
+  "limitation": "Short local-mock exercise, not live LLM quality, sustained capacity, or a circuit breaker. HTTP results/fallbacks are distinct from model-classified replies.",
+  "arrival_phase": {
+    "requests": 100,
+    "requested_arrival_rate_per_second": 50,
+    "dispatch_seconds": 2.083,
+    "total_elapsed_seconds": 2.695,
+    "observed_arrival_rate_per_second": 47.04,
+    "http_completions_per_second": 37.11,
+    "http_200_results_per_second": 37.11,
+    "model_classified_results_per_second": 2.97,
+    "status_counts": {
+      "200": 100
+    },
+    "analysis_source_counts": {
+      "ollama": 8,
+      "fallback": 92
+    },
+    "mock_model": {
+      "calls": 8,
+      "peak_concurrency": 4,
+      "errors": 0
+    },
+    "p50_latency_ms": 286.32,
+    "p95_latency_ms": 1214.24,
+    "max_dispatch_lag_ms": 204.9,
+    "model_pressure_exercised": true,
+    "all_fallbacks_require_human": true,
+    "no_money_authorized": true,
+    "operational_logs": {
+      "privacy_passed": true,
+      "request_events": 100,
+      "decision_events": 100
+    },
+    "policy_versions": [
+      "assumed-dhaba-v4"
+    ],
+    "response_examples": {
+      "ollama": {
+        "category": "technical",
+        "refund": {
+          "decision": "not_requested",
+          "amount_inr": 0,
+          "purchase_id": null,
+          "reason": "no_explicit_refund_request"
+        },
+        "reply_draft": "I'm sorry the app isn't working for you. The details you shared give support a starting point to investigate.",
+        "needs_human": true,
+        "confidence": 0.99,
+        "meta": {
+          "source": "ollama",
+          "model_attempts": 1,
+          "degraded_reason": null,
+          "policy_version": "assumed-dhaba-v4",
+          "usage": {
+            "calls": 0,
+            "prompt_tokens": 0,
+            "prompt_cache_hit_tokens": 0,
+            "prompt_cache_miss_tokens": 0,
+            "completion_tokens": 0,
+            "reasoning_tokens": 0,
+            "unaccounted_calls": 0,
+            "estimated_cost_nano_usd": 0
+          },
+          "analysis_cached": false,
+          "language": "english"
+        }
+      },
+      "fallback": {
+        "category": "other",
+        "refund": {
+          "decision": "review_required",
+          "amount_inr": 0,
+          "purchase_id": null,
+          "reason": "analysis_unavailable_requires_review"
+        },
+        "reply_draft": "Please describe in English what happened and what help you need. A support agent needs to review the request before any account or billing action can be confirmed.",
+        "needs_human": true,
+        "confidence": 0.0,
+        "meta": {
+          "source": "fallback",
+          "model_attempts": 0,
+          "degraded_reason": "model_busy",
+          "policy_version": "assumed-dhaba-v4",
+          "usage": {
+            "calls": 0,
+            "prompt_tokens": 0,
+            "prompt_cache_hit_tokens": 0,
+            "prompt_cache_miss_tokens": 0,
+            "completion_tokens": 0,
+            "reasoning_tokens": 0,
+            "unaccounted_calls": 0,
+            "estimated_cost_nano_usd": 0
+          },
+          "analysis_cached": false,
+          "language": "english"
+        }
+      }
+    },
+    "service_metrics": {
+      "analysis_cache": {
+        "coalesced": 0,
+        "entries": 8,
+        "hits": 0,
+        "misses": 100
+      },
+      "model_budget": null,
+      "model_usage": {
+        "calls": 0,
+        "completion_tokens": 0,
+        "estimated_cost_nano_usd": 0,
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 0,
+        "prompt_tokens": 0,
+        "reasoning_tokens": 0,
+        "unaccounted_calls": 0
+      },
+      "triage_cache_hits_total": 0,
+      "triage_degraded_ratio": 0.92,
+      "triage_degraded_total": 92,
+      "triage_evaluated_total": 100,
+      "triage_http_overload_total": 0
+    }
+  },
+  "http_admission_probe": {
+    "requests": 3,
+    "http_concurrency": 1,
+    "status_counts": {
+      "200": 2,
+      "503": 1
+    },
+    "retry_after": "1",
+    "rejected_request_recorded": false,
+    "retry_succeeded": true,
+    "mock_model": {
+      "calls": 2,
+      "peak_concurrency": 1,
+      "errors": 0
+    },
+    "operational_logs": {
+      "privacy_passed": true,
+      "request_events": 3,
+      "decision_events": 2
+    },
+    "rejection_body": {
+      "error": "service_busy",
+      "retryable": true
+    }
+  },
+  "owned_processes_stopped": true,
+  "passed": true
+}

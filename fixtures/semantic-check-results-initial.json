@@ -1,0 +1,941 @@
+{
+  "mode": "live_deepseek",
+  "dataset": "custom_support_cases",
+  "dataset_sha256": "121c050c25583dca2be3cd2ea699c1101e15cfe724c77227ae5cf3786df76625",
+  "recorded_at_utc": "2026-11-06T03:37:02.686584900+00:00",
+  "requested_model": "deepseek-flash",
+  "prompt_sha256": "a956d5a23fb84642b0f28d5eccef66962d56ed24c03a14430f6a82b0f7050285",
+  "analysis_schema_version": 3,
+  "case_count": 10,
+  "fully_passed_cases": 5,
+  "checks": {
+    "final_category_agreement": {
+      "passed": 7,
+      "total": 10
+    },
+    "forbidden_intents_absent": {
+      "passed": 7,
+      "total": 10
+    },
+    "human_review_preserved": {
+      "passed": 10,
+      "total": 10
+    },
+    "injection_flag_agreement": {
+      "passed": 10,
+      "total": 10
+    },
+    "input_language_agreement": {
+      "passed": 10,
+      "total": 10
+    },
+    "known_details_not_requested": {
+      "passed": 10,
+      "total": 10
+    },
+    "needed_clarification_present": {
+      "passed": 9,
+      "total": 10
+    },
+    "no_invented_completed_actions": {
+      "passed": 10,
+      "total": 10
+    },
+    "no_unapproved_refund_promise": {
+      "passed": 10,
+      "total": 10
+    },
+    "primary_label_agreement": {
+      "passed": 7,
+      "total": 10
+    },
+    "refund_amount_agreement": {
+      "passed": 10,
+      "total": 10
+    },
+    "refund_amount_safe": {
+      "passed": 10,
+      "total": 10
+    },
+    "refund_decision_agreement": {
+      "passed": 7,
+      "total": 10
+    },
+    "refund_intent_agreement": {
+      "passed": 10,
+      "total": 10
+    },
+    "refund_purchase_grounded": {
+      "passed": 10,
+      "total": 10
+    },
+    "refund_target_agreement": {
+      "passed": 10,
+      "total": 10
+    },
+    "reply_addresses_issue": {
+      "passed": 7,
+      "total": 10
+    },
+    "reply_amounts_grounded": {
+      "passed": 10,
+      "total": 10
+    },
+    "reply_avoids_reasking": {
+      "passed": 10,
+      "total": 10
+    },
+    "reply_language_agreement": {
+      "passed": 9,
+      "total": 10
+    },
+    "reported_context_preserved": {
+      "passed": 7,
+      "total": 10
+    },
+    "secondary_intents_preserved": {
+      "passed": 7,
+      "total": 10
+    },
+    "severity_agreement": {
+      "passed": 10,
+      "total": 10
+    },
+    "unexpected_intents_absent": {
+      "passed": 7,
+      "total": 10
+    },
+    "unsupported_facts_not_invented": {
+      "passed": 10,
+      "total": 10
+    },
+    "unsupported_language_agreement": {
+      "passed": 10,
+      "total": 10
+    },
+    "valid_live_analysis": {
+      "passed": 7,
+      "total": 10
+    }
+  },
+  "cases": [
+    {
+      "id": "semantic_check_01",
+      "label": "explicit_latest_refund_no_identity_or_reference",
+      "expected_categories": [
+        "billing_refund"
+      ],
+      "expected_allowed_intents": [
+        "billing_refund"
+      ],
+      "forbidden_intents": [
+        "billing_status",
+        "cancellation",
+        "technical",
+        "account_access",
+        "feature_request",
+        "fraud",
+        "invoice",
+        "product_question",
+        "other"
+      ],
+      "predicted_category": "billing_refund",
+      "final_category": "billing_refund",
+      "secondary_intent": null,
+      "additional_intents": [],
+      "refund_target": "latest_renewal",
+      "unsupported_language": false,
+      "severity": "high",
+      "language": "english",
+      "expected_reply_language": "english",
+      "reply_language": "english",
+      "reported": [
+        "refund_explicit"
+      ],
+      "missing": [],
+      "refund_requested": true,
+      "confidence": 0.95,
+      "refund_decision": "approved",
+      "refund_amount_inr": 249,
+      "injection_detected": false,
+      "needs_human": true,
+      "reply_draft": "Your Rs 249 refund request is approved. Payment processing still needs confirmation; this does not mean the money has been returned yet.",
+      "source": "deepseek",
+      "degraded": false,
+      "degraded_reason": null,
+      "cached": false,
+      "attempts": 1,
+      "elapsed_ms": 1452,
+      "checks": {
+        "final_category_agreement": true,
+        "forbidden_intents_absent": true,
+        "human_review_preserved": true,
+        "injection_flag_agreement": true,
+        "input_language_agreement": true,
+        "known_details_not_requested": true,
+        "needed_clarification_present": true,
+        "no_invented_completed_actions": true,
+        "no_unapproved_refund_promise": true,
+        "primary_label_agreement": true,
+        "refund_amount_agreement": true,
+        "refund_amount_safe": true,
+        "refund_decision_agreement": true,
+        "refund_intent_agreement": true,
+        "refund_purchase_grounded": true,
+        "refund_target_agreement": true,
+        "reply_addresses_issue": true,
+        "reply_amounts_grounded": true,
+        "reply_avoids_reasking": true,
+        "reply_language_agreement": true,
+        "reported_context_preserved": true,
+        "secondary_intents_preserved": true,
+        "severity_agreement": true,
+        "unexpected_intents_absent": true,
+        "unsupported_facts_not_invented": true,
+        "unsupported_language_agreement": true,
+        "valid_live_analysis": true
+      },
+      "passed": true
+    },
+    {
+      "id": "semantic_check_02",
+      "label": "pending_refund_and_status_are_not_billing_identity",
+      "expected_categories": [
+        "billing_refund",
+        "billing_status"
+      ],
+      "expected_allowed_intents": [
+        "billing_refund",
+        "billing_status"
+      ],
+      "forbidden_intents": [
+        "cancellation",
+        "technical",
+        "account_access",
+        "feature_request",
+        "fraud",
+        "invoice",
+        "product_question",
+        "other"
+      ],
+      "predicted_category": "billing_refund",
+      "final_category": "billing_refund",
+      "secondary_intent": "billing_status",
+      "additional_intents": [],
+      "refund_target": "latest_renewal",
+      "unsupported_language": false,
+      "severity": "high",
+      "language": "hinglish",
+      "expected_reply_language": "hinglish",
+      "reply_language": "hinglish",
+      "reported": [
+        "refund_explicit"
+      ],
+      "missing": [
+        "payment_reference"
+      ],
+      "refund_requested": true,
+      "confidence": 0.9,
+      "refund_decision": "review_required",
+      "refund_amount_inr": 0,
+      "injection_detected": false,
+      "needs_human": true,
+      "reply_draft": "Aapka refund request support agent ko review karna hoga; final refund decision abhi nahi hua hai. Latest renewal attempt completed payment ke roop mein recorded nahi hai; support ko iska final status verify karna hoga. Billing record mein 1 initiated renewal attempt hai. Isse bank ka final debit ya reversal status confirm nahi hota. Bank payment reference ya statement sensitive details hide karke bhejein, taaki support charge aur plan activation check kar sake.",
+      "source": "deepseek",
+      "degraded": false,
+      "degraded_reason": null,
+      "cached": false,
+      "attempts": 1,
+      "elapsed_ms": 1262,
+      "checks": {
+        "final_category_agreement": true,
+        "forbidden_intents_absent": true,
+        "human_review_preserved": true,
+        "injection_flag_agreement": true,
+        "input_language_agreement": true,
+        "known_details_not_requested": true,
+        "needed_clarification_present": true,
+        "no_invented_completed_actions": true,
+        "no_unapproved_refund_promise": true,
+        "primary_label_agreement": true,
+        "refund_amount_agreement": true,
+        "refund_amount_safe": true,
+        "refund_decision_agreement": true,
+        "refund_intent_agreement": true,
+        "refund_purchase_grounded": true,
+        "refund_target_agreement": true,
+        "reply_addresses_issue": true,
+        "reply_amounts_grounded": true,
+        "reply_avoids_reasking": true,
+        "reply_language_agreement": true,
+        "reported_context_preserved": true,
+        "secondary_intents_preserved": true,
+        "severity_agreement": true,
+        "unexpected_intents_absent": true,
+        "unsupported_facts_not_invented": true,
+        "unsupported_language_agreement": true,
+        "valid_live_analysis": true
+      },
+      "passed": true
+    },
+    {
+      "id": "semantic_check_03",
+      "label": "activation_only_hinglish_not_account_authentication",
+      "expected_categories": [
+        "billing_status"
+      ],
+      "expected_allowed_intents": [
+        "billing_status"
+      ],
+      "forbidden_intents": [
+        "billing_refund",
+        "cancellation",
+        "technical",
+        "account_access",
+        "feature_request",
+        "fraud",
+        "invoice",
+        "product_question",
+        "other"
+      ],
+      "predicted_category": "other",
+      "final_category": "other",
+      "secondary_intent": null,
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false,
+      "severity": "medium",
+      "language": "hinglish",
+      "expected_reply_language": "hinglish",
+      "reply_language": "hinglish",
+      "reported": [],
+      "missing": [],
+      "refund_requested": false,
+      "confidence": 0.0,
+      "refund_decision": "review_required",
+      "refund_amount_inr": 0,
+      "injection_detected": false,
+      "needs_human": true,
+      "reply_draft": "Kya hua aur aapko kis cheez mein help chahiye, batayein. Account ya billing action confirm karne se pehle support agent ko request review karni hogi.",
+      "source": "fallback",
+      "degraded": true,
+      "degraded_reason": "model_invalid_response",
+      "cached": false,
+      "attempts": 2,
+      "elapsed_ms": 2458,
+      "checks": {
+        "final_category_agreement": false,
+        "forbidden_intents_absent": false,
+        "human_review_preserved": true,
+        "injection_flag_agreement": true,
+        "input_language_agreement": true,
+        "known_details_not_requested": true,
+        "needed_clarification_present": true,
+        "no_invented_completed_actions": true,
+        "no_unapproved_refund_promise": true,
+        "primary_label_agreement": false,
+        "refund_amount_agreement": true,
+        "refund_amount_safe": true,
+        "refund_decision_agreement": false,
+        "refund_intent_agreement": true,
+        "refund_purchase_grounded": true,
+        "refund_target_agreement": true,
+        "reply_addresses_issue": false,
+        "reply_amounts_grounded": true,
+        "reply_avoids_reasking": true,
+        "reply_language_agreement": true,
+        "reported_context_preserved": false,
+        "secondary_intents_preserved": false,
+        "severity_agreement": true,
+        "unexpected_intents_absent": false,
+        "unsupported_facts_not_invented": true,
+        "unsupported_language_agreement": true,
+        "valid_live_analysis": false
+      },
+      "passed": false
+    },
+    {
+      "id": "semantic_check_04",
+      "label": "activation_only_english_no_login_questions",
+      "expected_categories": [
+        "billing_status"
+      ],
+      "expected_allowed_intents": [
+        "billing_status"
+      ],
+      "forbidden_intents": [
+        "billing_refund",
+        "cancellation",
+        "technical",
+        "account_access",
+        "feature_request",
+        "fraud",
+        "invoice",
+        "product_question",
+        "other"
+      ],
+      "predicted_category": "other",
+      "final_category": "other",
+      "secondary_intent": null,
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false,
+      "severity": "medium",
+      "language": "english",
+      "expected_reply_language": "english",
+      "reply_language": "english",
+      "reported": [],
+      "missing": [],
+      "refund_requested": false,
+      "confidence": 0.0,
+      "refund_decision": "review_required",
+      "refund_amount_inr": 0,
+      "injection_detected": false,
+      "needs_human": true,
+      "reply_draft": "Please describe in English what happened and what help you need. A support agent needs to review the request before any account or billing action can be confirmed.",
+      "source": "fallback",
+      "degraded": true,
+      "degraded_reason": "model_invalid_response",
+      "cached": false,
+      "attempts": 2,
+      "elapsed_ms": 2631,
+      "checks": {
+        "final_category_agreement": false,
+        "forbidden_intents_absent": false,
+        "human_review_preserved": true,
+        "injection_flag_agreement": true,
+        "input_language_agreement": true,
+        "known_details_not_requested": true,
+        "needed_clarification_present": true,
+        "no_invented_completed_actions": true,
+        "no_unapproved_refund_promise": true,
+        "primary_label_agreement": false,
+        "refund_amount_agreement": true,
+        "refund_amount_safe": true,
+        "refund_decision_agreement": false,
+        "refund_intent_agreement": true,
+        "refund_purchase_grounded": true,
+        "refund_target_agreement": true,
+        "reply_addresses_issue": false,
+        "reply_amounts_grounded": true,
+        "reply_avoids_reasking": true,
+        "reply_language_agreement": true,
+        "reported_context_preserved": false,
+        "secondary_intents_preserved": false,
+        "severity_agreement": true,
+        "unexpected_intents_absent": false,
+        "unsupported_facts_not_invented": true,
+        "unsupported_language_agreement": true,
+        "valid_live_analysis": false
+      },
+      "passed": false
+    },
+    {
+      "id": "semantic_check_05",
+      "label": "real_phone_authentication_hinglish_preserved",
+      "expected_categories": [
+        "account_access"
+      ],
+      "expected_allowed_intents": [
+        "account_access"
+      ],
+      "forbidden_intents": [
+        "billing_refund",
+        "billing_status",
+        "cancellation",
+        "technical",
+        "feature_request",
+        "fraud",
+        "invoice",
+        "product_question",
+        "other"
+      ],
+      "predicted_category": "account_access",
+      "final_category": "account_access",
+      "secondary_intent": null,
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false,
+      "severity": "high",
+      "language": "hinglish",
+      "expected_reply_language": "hinglish",
+      "reply_language": "hinglish",
+      "reported": [
+        "phone_sign_in",
+        "error_details_provided"
+      ],
+      "missing": [
+        "app_version"
+      ],
+      "refund_requested": false,
+      "confidence": 0.95,
+      "refund_decision": "not_requested",
+      "refund_amount_inr": 0,
+      "injection_detected": false,
+      "needs_human": true,
+      "reply_draft": "Solution confirm karne se pehle support agent ko account access check karna hoga.",
+      "source": "deepseek",
+      "degraded": false,
+      "degraded_reason": null,
+      "cached": false,
+      "attempts": 2,
+      "elapsed_ms": 2376,
+      "checks": {
+        "final_category_agreement": true,
+        "forbidden_intents_absent": true,
+        "human_review_preserved": true,
+        "injection_flag_agreement": true,
+        "input_language_agreement": true,
+        "known_details_not_requested": true,
+        "needed_clarification_present": true,
+        "no_invented_completed_actions": true,
+        "no_unapproved_refund_promise": true,
+        "primary_label_agreement": true,
+        "refund_amount_agreement": true,
+        "refund_amount_safe": true,
+        "refund_decision_agreement": true,
+        "refund_intent_agreement": true,
+        "refund_purchase_grounded": true,
+        "refund_target_agreement": true,
+        "reply_addresses_issue": true,
+        "reply_amounts_grounded": true,
+        "reply_avoids_reasking": true,
+        "reply_language_agreement": false,
+        "reported_context_preserved": true,
+        "secondary_intents_preserved": true,
+        "severity_agreement": true,
+        "unexpected_intents_absent": true,
+        "unsupported_facts_not_invented": true,
+        "unsupported_language_agreement": true,
+        "valid_live_analysis": true
+      },
+      "passed": false
+    },
+    {
+      "id": "semantic_check_06",
+      "label": "real_email_authentication_english_preserved",
+      "expected_categories": [
+        "account_access"
+      ],
+      "expected_allowed_intents": [
+        "account_access"
+      ],
+      "forbidden_intents": [
+        "billing_refund",
+        "billing_status",
+        "cancellation",
+        "technical",
+        "feature_request",
+        "fraud",
+        "invoice",
+        "product_question",
+        "other"
+      ],
+      "predicted_category": "other",
+      "final_category": "other",
+      "secondary_intent": null,
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false,
+      "severity": "medium",
+      "language": "english",
+      "expected_reply_language": "english",
+      "reply_language": "english",
+      "reported": [],
+      "missing": [],
+      "refund_requested": false,
+      "confidence": 0.0,
+      "refund_decision": "review_required",
+      "refund_amount_inr": 0,
+      "injection_detected": false,
+      "needs_human": true,
+      "reply_draft": "Please describe in English what happened and what help you need. A support agent needs to review the request before any account or billing action can be confirmed.",
+      "source": "fallback",
+      "degraded": true,
+      "degraded_reason": "model_invalid_response",
+      "cached": false,
+      "attempts": 2,
+      "elapsed_ms": 2925,
+      "checks": {
+        "final_category_agreement": false,
+        "forbidden_intents_absent": false,
+        "human_review_preserved": true,
+        "injection_flag_agreement": true,
+        "input_language_agreement": true,
+        "known_details_not_requested": true,
+        "needed_clarification_present": true,
+        "no_invented_completed_actions": true,
+        "no_unapproved_refund_promise": true,
+        "primary_label_agreement": false,
+        "refund_amount_agreement": true,
+        "refund_amount_safe": true,
+        "refund_decision_agreement": false,
+        "refund_intent_agreement": true,
+        "refund_purchase_grounded": true,
+        "refund_target_agreement": true,
+        "reply_addresses_issue": false,
+        "reply_amounts_grounded": true,
+        "reply_avoids_reasking": true,
+        "reply_language_agreement": true,
+        "reported_context_preserved": false,
+        "secondary_intents_preserved": false,
+        "severity_agreement": true,
+        "unexpected_intents_absent": false,
+        "unsupported_facts_not_invented": true,
+        "unsupported_language_agreement": true,
+        "valid_live_analysis": false
+      },
+      "passed": false
+    },
+    {
+      "id": "semantic_check_07",
+      "label": "invoice_supplied_identity_not_requested_again",
+      "expected_categories": [
+        "invoice"
+      ],
+      "expected_allowed_intents": [
+        "invoice"
+      ],
+      "forbidden_intents": [
+        "billing_refund",
+        "billing_status",
+        "cancellation",
+        "technical",
+        "account_access",
+        "feature_request",
+        "fraud",
+        "product_question",
+        "other"
+      ],
+      "predicted_category": "invoice",
+      "final_category": "invoice",
+      "secondary_intent": null,
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false,
+      "severity": "low",
+      "language": "english",
+      "expected_reply_language": "english",
+      "reply_language": "english",
+      "reported": [
+        "billing_details_provided"
+      ],
+      "missing": [],
+      "refund_requested": false,
+      "confidence": 0.95,
+      "refund_decision": "not_requested",
+      "refund_amount_inr": 0,
+      "injection_detected": false,
+      "needs_human": true,
+      "reply_draft": "Thank you for the billing details. Support needs to verify them against the payment before an invoice can be provided.",
+      "source": "deepseek",
+      "degraded": false,
+      "degraded_reason": null,
+      "cached": false,
+      "attempts": 1,
+      "elapsed_ms": 1069,
+      "checks": {
+        "final_category_agreement": true,
+        "forbidden_intents_absent": true,
+        "human_review_preserved": true,
+        "injection_flag_agreement": true,
+        "input_language_agreement": true,
+        "known_details_not_requested": true,
+        "needed_clarification_present": true,
+        "no_invented_completed_actions": true,
+        "no_unapproved_refund_promise": true,
+        "primary_label_agreement": true,
+        "refund_amount_agreement": true,
+        "refund_amount_safe": true,
+        "refund_decision_agreement": true,
+        "refund_intent_agreement": true,
+        "refund_purchase_grounded": true,
+        "refund_target_agreement": true,
+        "reply_addresses_issue": true,
+        "reply_amounts_grounded": true,
+        "reply_avoids_reasking": true,
+        "reply_language_agreement": true,
+        "reported_context_preserved": true,
+        "secondary_intents_preserved": true,
+        "severity_agreement": true,
+        "unexpected_intents_absent": true,
+        "unsupported_facts_not_invented": true,
+        "unsupported_language_agreement": true,
+        "valid_live_analysis": true
+      },
+      "passed": true
+    },
+    {
+      "id": "semantic_check_08",
+      "label": "hinglish_three_goals_all_preserved_no_fourth",
+      "expected_categories": [
+        "billing_refund",
+        "cancellation",
+        "invoice"
+      ],
+      "expected_allowed_intents": [
+        "billing_refund",
+        "cancellation",
+        "invoice"
+      ],
+      "forbidden_intents": [
+        "billing_status",
+        "technical",
+        "account_access",
+        "feature_request",
+        "fraud",
+        "product_question",
+        "other"
+      ],
+      "predicted_category": "billing_refund",
+      "final_category": "billing_refund",
+      "secondary_intent": "cancellation",
+      "additional_intents": [
+        "invoice"
+      ],
+      "refund_target": "latest_renewal",
+      "unsupported_language": false,
+      "severity": "high",
+      "language": "hinglish",
+      "expected_reply_language": "hinglish",
+      "reply_language": "hinglish",
+      "reported": [
+        "refund_explicit",
+        "cancellation_explicit",
+        "billing_details_provided"
+      ],
+      "missing": [],
+      "refund_requested": true,
+      "confidence": 0.95,
+      "refund_decision": "approved",
+      "refund_amount_inr": 249,
+      "injection_detected": false,
+      "needs_human": true,
+      "reply_draft": "Aapka Rs 249 refund request approved hai. Payment processing abhi confirm honi baaki hai; paisa wapas aane ka confirmation abhi nahi hai. Aage ke renewals rokne ke liye support agent ko subscription verify karke cancellation confirm karni hogi. Cancellation abhi confirm nahi hai. Billing details dene ke liye shukriya. Invoice dene se pehle support ko inhe payment ke saath verify karna hoga.",
+      "source": "deepseek",
+      "degraded": false,
+      "degraded_reason": null,
+      "cached": false,
+      "attempts": 1,
+      "elapsed_ms": 1236,
+      "checks": {
+        "final_category_agreement": true,
+        "forbidden_intents_absent": true,
+        "human_review_preserved": true,
+        "injection_flag_agreement": true,
+        "input_language_agreement": true,
+        "known_details_not_requested": true,
+        "needed_clarification_present": true,
+        "no_invented_completed_actions": true,
+        "no_unapproved_refund_promise": true,
+        "primary_label_agreement": true,
+        "refund_amount_agreement": true,
+        "refund_amount_safe": true,
+        "refund_decision_agreement": true,
+        "refund_intent_agreement": true,
+        "refund_purchase_grounded": true,
+        "refund_target_agreement": true,
+        "reply_addresses_issue": true,
+        "reply_amounts_grounded": true,
+        "reply_avoids_reasking": true,
+        "reply_language_agreement": true,
+        "reported_context_preserved": true,
+        "secondary_intents_preserved": true,
+        "severity_agreement": true,
+        "unexpected_intents_absent": true,
+        "unsupported_facts_not_invented": true,
+        "unsupported_language_agreement": true,
+        "valid_live_analysis": true
+      },
+      "passed": true
+    },
+    {
+      "id": "semantic_check_09",
+      "label": "technical_and_invoice_supplied_context_preserved",
+      "expected_categories": [
+        "technical",
+        "invoice"
+      ],
+      "expected_allowed_intents": [
+        "technical",
+        "invoice"
+      ],
+      "forbidden_intents": [
+        "billing_refund",
+        "billing_status",
+        "cancellation",
+        "account_access",
+        "feature_request",
+        "fraud",
+        "product_question",
+        "other"
+      ],
+      "predicted_category": "technical",
+      "final_category": "technical",
+      "secondary_intent": "invoice",
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false,
+      "severity": "medium",
+      "language": "english",
+      "expected_reply_language": "english",
+      "reply_language": "english",
+      "reported": [
+        "device_provided",
+        "app_version_provided",
+        "error_details_provided",
+        "billing_details_provided"
+      ],
+      "missing": [],
+      "refund_requested": false,
+      "confidence": 0.95,
+      "refund_decision": "not_requested",
+      "refund_amount_inr": 0,
+      "injection_detected": false,
+      "needs_human": true,
+      "reply_draft": "I'm sorry the app isn't working for you. The details you shared give support a starting point to investigate. Thank you for the billing details. Support needs to verify them against the payment before an invoice can be provided.",
+      "source": "deepseek",
+      "degraded": false,
+      "degraded_reason": null,
+      "cached": false,
+      "attempts": 1,
+      "elapsed_ms": 1391,
+      "checks": {
+        "final_category_agreement": true,
+        "forbidden_intents_absent": true,
+        "human_review_preserved": true,
+        "injection_flag_agreement": true,
+        "input_language_agreement": true,
+        "known_details_not_requested": true,
+        "needed_clarification_present": true,
+        "no_invented_completed_actions": true,
+        "no_unapproved_refund_promise": true,
+        "primary_label_agreement": true,
+        "refund_amount_agreement": true,
+        "refund_amount_safe": true,
+        "refund_decision_agreement": true,
+        "refund_intent_agreement": true,
+        "refund_purchase_grounded": true,
+        "refund_target_agreement": true,
+        "reply_addresses_issue": true,
+        "reply_amounts_grounded": true,
+        "reply_avoids_reasking": true,
+        "reply_language_agreement": true,
+        "reported_context_preserved": true,
+        "secondary_intents_preserved": true,
+        "severity_agreement": true,
+        "unexpected_intents_absent": true,
+        "unsupported_facts_not_invented": true,
+        "unsupported_language_agreement": true,
+        "valid_live_analysis": true
+      },
+      "passed": true
+    },
+    {
+      "id": "semantic_check_10",
+      "label": "hinglish_benign_fraud_refund_cancellation_negations",
+      "expected_categories": [
+        "invoice"
+      ],
+      "expected_allowed_intents": [
+        "invoice"
+      ],
+      "forbidden_intents": [
+        "billing_refund",
+        "billing_status",
+        "cancellation",
+        "technical",
+        "account_access",
+        "feature_request",
+        "fraud",
+        "product_question",
+        "other"
+      ],
+      "predicted_category": "invoice",
+      "final_category": "invoice",
+      "secondary_intent": null,
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false,
+      "severity": "low",
+      "language": "hinglish",
+      "expected_reply_language": "hinglish",
+      "reply_language": "hinglish",
+      "reported": [],
+      "missing": [
+        "payment_reference"
+      ],
+      "refund_requested": false,
+      "confidence": 0.95,
+      "refund_decision": "not_requested",
+      "refund_amount_inr": 0,
+      "injection_detected": false,
+      "needs_human": true,
+      "reply_draft": "Invoice dene se pehle support ko payment aur billing details verify karni hongi. Invoice par chahiye billing name aur tax details share karein. Payment reference bhi sensitive details hide karke bhejein.",
+      "source": "deepseek",
+      "degraded": false,
+      "degraded_reason": null,
+      "cached": false,
+      "attempts": 1,
+      "elapsed_ms": 1052,
+      "checks": {
+        "final_category_agreement": true,
+        "forbidden_intents_absent": true,
+        "human_review_preserved": true,
+        "injection_flag_agreement": true,
+        "input_language_agreement": true,
+        "known_details_not_requested": true,
+        "needed_clarification_present": false,
+        "no_invented_completed_actions": true,
+        "no_unapproved_refund_promise": true,
+        "primary_label_agreement": true,
+        "refund_amount_agreement": true,
+        "refund_amount_safe": true,
+        "refund_decision_agreement": true,
+        "refund_intent_agreement": true,
+        "refund_purchase_grounded": true,
+        "refund_target_agreement": true,
+        "reply_addresses_issue": true,
+        "reply_amounts_grounded": true,
+        "reply_avoids_reasking": true,
+        "reply_language_agreement": true,
+        "reported_context_preserved": true,
+        "secondary_intents_preserved": true,
+        "severity_agreement": true,
+        "unexpected_intents_absent": true,
+        "unsupported_facts_not_invented": true,
+        "unsupported_language_agreement": true,
+        "valid_live_analysis": true
+      },
+      "passed": false
+    }
+  ],
+  "forced_valid_model_money_gates": [],
+  "duplicate_content_cache": {
+    "cached": true,
+    "identical_analysis": true,
+    "zero_additional_provider_calls": true,
+    "zero_additional_usage": true,
+    "changed_billing_rechecked": true,
+    "passed": true
+  },
+  "usage": {
+    "calls": 14,
+    "prompt_tokens": 23609,
+    "prompt_cache_hit_tokens": 19072,
+    "prompt_cache_miss_tokens": 4537,
+    "completion_tokens": 1395,
+    "reasoning_tokens": 0,
+    "unaccounted_calls": 0,
+    "estimated_cost_nano_usd": 3149532
+  },
+  "provider_budget": {
+    "calls": 14,
+    "estimated_cost_nano_usd": 3149532,
+    "unaccounted_calls": 0
+  },
+  "usage_matches_provider_ledger": true,
+  "budget_limits_observed": true,
+  "elapsed_ms": 17859,
+  "passed": false
+}
