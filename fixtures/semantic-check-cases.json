@@ -1,0 +1,887 @@
+{
+  "schema_version": 1,
+  "note": "Ten novel authored semantic regression cases, frozen before their first live call. Five English and five Hinglish inputs deliberately distinguish payment amounts/status from billing identity/reference, subscription activation from authentication, complete requested goals from invented extra goals, and provided context from unnecessary questions. Every case specifies the complete allowed intent set as well as forbidden intents, forbidden evidence/missing labels, and forbidden reply questions. These expectations were authored independently of model outputs, but their authors know previous defects and the service contract: this is focused regression validation, not an unbiased population-accuracy benchmark. Only subject/body may enter the provider prompt. All names, references, identifiers, devices and 2036 dates are invented. The first case is a clean eligible refund supporting the evaluator's duplicate-content/billing-recheck probe. Independent rubric review revised only expectation constraints before the first live call: initial snapshot SHA256 95457369fb346671a2b4a49ce564aa88f0ef217e3c13321705f395b77948c36a. Optional internal payment-reference missing flags are not mandatory when a correct customer-facing request or human handoff is sufficient. Negative reply phrases target actual unnecessary questions, unsupported action statements or false factual acknowledgements rather than mere topic mentions. All ticket inputs, complete allowed intents and forbidden evidence constraints remain unchanged. Freeze the revised file before evaluation and do not tune expectations after results.",
+  "cases": [
+    {
+      "id": "semantic_check_01",
+      "label": "explicit_latest_refund_no_identity_or_reference",
+      "ticket": {
+        "id": "synthetic-semantic_check_01",
+        "received_at": "2036-09-14T16:00:00.000Z",
+        "subject": "Unused renewal, return that charge",
+        "body": "Please refund the latest Rs 249 monthly renewal from yesterday morning. I have not opened Dhaba since that payment. This request concerns that single latest renewal.",
+        "purchases": [
+          {
+            "id": "invented-semantic_check_01-payment-1",
+            "type": "renewal",
+            "amount_inr": 249,
+            "status": "successful",
+            "at": "2036-09-13T14:00:00.000Z"
+          }
+        ],
+        "app_opens_since_renewal": 0
+      },
+      "expect": {
+        "categories": [
+          "billing_refund"
+        ],
+        "allowed_intents": [
+          "billing_refund"
+        ],
+        "forbidden_intents": [
+          "billing_status",
+          "cancellation",
+          "technical",
+          "account_access",
+          "feature_request",
+          "fraud",
+          "invoice",
+          "product_question",
+          "other"
+        ],
+        "required_intents": [
+          "billing_refund"
+        ],
+        "severities": [
+          "medium",
+          "high"
+        ],
+        "language": "english",
+        "reply_language": "english",
+        "refund_target": "latest_renewal",
+        "unsupported_language": false,
+        "refund_requested": true,
+        "refund_decisions": [
+          "approved"
+        ],
+        "max_refund_inr": 249,
+        "required_reported": [
+          "refund_explicit"
+        ],
+        "forbidden_reported": [
+          "billing_details_provided",
+          "payment_reference_provided",
+          "cancellation_explicit"
+        ],
+        "required_missing": [],
+        "forbidden_missing": [
+          "billing_details",
+          "payment_reference",
+          "cancellation_target",
+          "sign_in_method",
+          "missing_account_data"
+        ],
+        "reply_contains": [
+          "249",
+          "processing"
+        ],
+        "reply_omits": [
+          "Please share the billing name",
+          "Please share the payment reference",
+          "Which sign-in method",
+          "Do you want to request a refund",
+          "before an invoice can be provided"
+        ],
+        "injection_detected": false,
+        "hostile_analysis_gate": false
+      }
+    },
+    {
+      "id": "semantic_check_02",
+      "label": "pending_refund_and_status_are_not_billing_identity",
+      "ticket": {
+        "id": "synthetic-semantic_check_02",
+        "received_at": "2036-09-14T16:00:00.000Z",
+        "subject": "Pending renewal ka refund aur status",
+        "body": "Latest monthly renewal ka Rs 249 payment attempt abhi pending dikh raha hai. Is latest renewal ka refund chahiye. Saath mein payment ka final status bhi check kar do; renewed subscription abhi use nahi hui hai.",
+        "purchases": [
+          {
+            "id": "invented-semantic_check_02-payment-1",
+            "type": "renewal",
+            "amount_inr": 249,
+            "status": "initiated",
+            "at": "2036-09-14T14:00:00.000Z"
+          }
+        ],
+        "app_opens_since_renewal": 0
+      },
+      "expect": {
+        "categories": [
+          "billing_refund",
+          "billing_status"
+        ],
+        "allowed_intents": [
+          "billing_refund",
+          "billing_status"
+        ],
+        "forbidden_intents": [
+          "cancellation",
+          "technical",
+          "account_access",
+          "feature_request",
+          "fraud",
+          "invoice",
+          "product_question",
+          "other"
+        ],
+        "required_intents": [
+          "billing_refund",
+          "billing_status"
+        ],
+        "severities": [
+          "medium",
+          "high"
+        ],
+        "language": "hinglish",
+        "reply_language": "hinglish",
+        "refund_target": "latest_renewal",
+        "unsupported_language": false,
+        "refund_requested": true,
+        "refund_decisions": [
+          "review_required"
+        ],
+        "max_refund_inr": 0,
+        "required_reported": [
+          "refund_explicit"
+        ],
+        "forbidden_reported": [
+          "billing_details_provided",
+          "payment_reference_provided",
+          "bank_debit_reported",
+          "cancellation_explicit"
+        ],
+        "required_missing": [],
+        "forbidden_missing": [
+          "billing_details",
+          "sign_in_method",
+          "missing_account_data"
+        ],
+        "reply_contains": [
+          "review",
+          "initiated",
+          "plan activation"
+        ],
+        "reply_omits": [
+          "Billing details dene ke liye shukriya",
+          "Sign-in method aur account access karte waqt",
+          "account access check karna hoga",
+          "kaunsa sign-in method use kar rahe hain?",
+          "billing name aur tax details share karein",
+          "refund request approved hai"
+        ],
+        "injection_detected": false,
+        "hostile_analysis_gate": false
+      }
+    },
+    {
+      "id": "semantic_check_03",
+      "label": "activation_only_hinglish_not_account_authentication",
+      "ticket": {
+        "id": "synthetic-semantic_check_03",
+        "received_at": "2036-09-14T16:00:00.000Z",
+        "subject": "Payment ke baad paid access locked",
+        "body": "Main account mein already logged in hoon aur login normally chal raha hai. Bank mein subscription ka debit dikh raha hai, lekin renewal active nahi hua aur paid lessons locked hain. Sirf subscription payment aur activation check kar do.",
+        "purchases": [
+          {
+            "id": "invented-semantic_check_03-payment-1",
+            "type": "renewal",
+            "amount_inr": 249,
+            "status": "initiated",
+            "at": "2036-09-14T13:00:00.000Z"
+          }
+        ],
+        "app_opens_since_renewal": 2
+      },
+      "expect": {
+        "categories": [
+          "billing_status"
+        ],
+        "allowed_intents": [
+          "billing_status"
+        ],
+        "forbidden_intents": [
+          "billing_refund",
+          "cancellation",
+          "technical",
+          "account_access",
+          "feature_request",
+          "fraud",
+          "invoice",
+          "product_question",
+          "other"
+        ],
+        "required_intents": [
+          "billing_status"
+        ],
+        "severities": [
+          "medium",
+          "high"
+        ],
+        "language": "hinglish",
+        "reply_language": "hinglish",
+        "refund_target": "unspecified",
+        "unsupported_language": false,
+        "refund_requested": false,
+        "refund_decisions": [
+          "not_requested"
+        ],
+        "max_refund_inr": 0,
+        "required_reported": [
+          "bank_debit_reported"
+        ],
+        "forbidden_reported": [
+          "billing_details_provided",
+          "payment_reference_provided",
+          "refund_explicit",
+          "google_sign_in",
+          "phone_sign_in",
+          "email_sign_in"
+        ],
+        "required_missing": [],
+        "forbidden_missing": [
+          "sign_in_method",
+          "missing_account_data",
+          "billing_details",
+          "technical_symptom"
+        ],
+        "reply_contains": [
+          "Billing record mein",
+          "plan activation"
+        ],
+        "reply_omits": [
+          "account access check karna hoga",
+          "Sign-in method aur account access karte waqt",
+          "kaunsa sign-in method use kar rahe hain?",
+          "Kya missing hai ya sign in karte waqt kya hota hai",
+          "Aapka refund request support agent ko review karna hoga",
+          "refund request approved hai"
+        ],
+        "injection_detected": false,
+        "hostile_analysis_gate": false
+      }
+    },
+    {
+      "id": "semantic_check_04",
+      "label": "activation_only_english_no_login_questions",
+      "ticket": {
+        "id": "synthetic-semantic_check_04",
+        "received_at": "2036-09-14T16:00:00.000Z",
+        "subject": "Payment reconciliation for inactive paid lessons",
+        "body": "I remain signed in and can open my account profile normally. My bank shows the Rs 249 subscription debit from this morning, but the new paid period is inactive and lessons remain locked. Please reconcile this payment and subscription activation.",
+        "purchases": [
+          {
+            "id": "invented-semantic_check_04-payment-1",
+            "type": "renewal",
+            "amount_inr": 249,
+            "status": "initiated",
+            "at": "2036-09-14T12:00:00.000Z"
+          }
+        ],
+        "app_opens_since_renewal": 1
+      },
+      "expect": {
+        "categories": [
+          "billing_status"
+        ],
+        "allowed_intents": [
+          "billing_status"
+        ],
+        "forbidden_intents": [
+          "billing_refund",
+          "cancellation",
+          "technical",
+          "account_access",
+          "feature_request",
+          "fraud",
+          "invoice",
+          "product_question",
+          "other"
+        ],
+        "required_intents": [
+          "billing_status"
+        ],
+        "severities": [
+          "medium",
+          "high"
+        ],
+        "language": "english",
+        "reply_language": "english",
+        "refund_target": "unspecified",
+        "unsupported_language": false,
+        "refund_requested": false,
+        "refund_decisions": [
+          "not_requested"
+        ],
+        "max_refund_inr": 0,
+        "required_reported": [
+          "bank_debit_reported"
+        ],
+        "forbidden_reported": [
+          "billing_details_provided",
+          "payment_reference_provided",
+          "refund_explicit",
+          "google_sign_in",
+          "phone_sign_in",
+          "email_sign_in"
+        ],
+        "required_missing": [],
+        "forbidden_missing": [
+          "sign_in_method",
+          "missing_account_data",
+          "billing_details",
+          "technical_symptom"
+        ],
+        "reply_contains": [
+          "initiated",
+          "reconcile",
+          "plan activation"
+        ],
+        "reply_omits": [
+          "investigate your account access",
+          "Which sign-in method",
+          "Please share your sign-in method",
+          "Please describe what is missing or what happens when you sign in",
+          "Your refund request needs human review",
+          "refund request is approved"
+        ],
+        "injection_detected": false,
+        "hostile_analysis_gate": false
+      }
+    },
+    {
+      "id": "semantic_check_05",
+      "label": "real_phone_authentication_hinglish_preserved",
+      "ticket": {
+        "id": "synthetic-semantic_check_05",
+        "received_at": "2036-09-14T16:00:00.000Z",
+        "subject": "Phone sign-in account mein nahi jaata",
+        "body": "Phone number se sign-in karta hoon. Verification accept hone ke turant baad app wapas sign-in form par aa jaata hai, account khulta hi nahi. Mere account ke sign-in failure ko investigate kar do.",
+        "purchases": [
+          {
+            "id": "invented-semantic_check_05-payment-1",
+            "type": "renewal",
+            "amount_inr": 249,
+            "status": "successful",
+            "at": "2036-09-14T06:00:00.000Z"
+          }
+        ],
+        "app_opens_since_renewal": 0
+      },
+      "expect": {
+        "categories": [
+          "account_access"
+        ],
+        "allowed_intents": [
+          "account_access"
+        ],
+        "forbidden_intents": [
+          "billing_refund",
+          "billing_status",
+          "cancellation",
+          "technical",
+          "feature_request",
+          "fraud",
+          "invoice",
+          "product_question",
+          "other"
+        ],
+        "required_intents": [
+          "account_access"
+        ],
+        "severities": [
+          "medium",
+          "high"
+        ],
+        "language": "hinglish",
+        "reply_language": "hinglish",
+        "refund_target": "unspecified",
+        "unsupported_language": false,
+        "refund_requested": false,
+        "refund_decisions": [
+          "not_requested"
+        ],
+        "max_refund_inr": 0,
+        "required_reported": [
+          "phone_sign_in",
+          "error_details_provided"
+        ],
+        "forbidden_reported": [
+          "billing_details_provided",
+          "payment_reference_provided",
+          "missing_history",
+          "refund_explicit"
+        ],
+        "required_missing": [],
+        "forbidden_missing": [
+          "sign_in_method",
+          "technical_symptom",
+          "error_details",
+          "billing_details",
+          "payment_reference"
+        ],
+        "reply_contains": [
+          "account access",
+          "support"
+        ],
+        "reply_omits": [
+          "kaunsa sign-in method use kar rahe hain?",
+          "Sign-in method aur account access karte waqt",
+          "Kya missing hai ya sign in karte waqt kya hota hai",
+          "Bank payment reference ya statement",
+          "Payment reference bhi sensitive details hide karke bhejein",
+          "support charge aur plan activation check kar sake",
+          "refund request approved hai"
+        ],
+        "injection_detected": false,
+        "hostile_analysis_gate": false
+      }
+    },
+    {
+      "id": "semantic_check_06",
+      "label": "real_email_authentication_english_preserved",
+      "ticket": {
+        "id": "synthetic-semantic_check_06",
+        "received_at": "2036-09-14T16:00:00.000Z",
+        "subject": "Email authentication rejects the existing account",
+        "body": "Email sign-in will not let me access the account. After submitting the sign-in form, I receive AUTH_NO_SUCH_USER every time. Please investigate this authentication error.",
+        "purchases": [
+          {
+            "id": "invented-semantic_check_06-payment-1",
+            "type": "renewal",
+            "amount_inr": 249,
+            "status": "successful",
+            "at": "2036-09-14T06:00:00.000Z"
+          }
+        ],
+        "app_opens_since_renewal": 0
+      },
+      "expect": {
+        "categories": [
+          "account_access"
+        ],
+        "allowed_intents": [
+          "account_access"
+        ],
+        "forbidden_intents": [
+          "billing_refund",
+          "billing_status",
+          "cancellation",
+          "technical",
+          "feature_request",
+          "fraud",
+          "invoice",
+          "product_question",
+          "other"
+        ],
+        "required_intents": [
+          "account_access"
+        ],
+        "severities": [
+          "medium",
+          "high"
+        ],
+        "language": "english",
+        "reply_language": "english",
+        "refund_target": "unspecified",
+        "unsupported_language": false,
+        "refund_requested": false,
+        "refund_decisions": [
+          "not_requested"
+        ],
+        "max_refund_inr": 0,
+        "required_reported": [
+          "email_sign_in",
+          "error_details_provided"
+        ],
+        "forbidden_reported": [
+          "billing_details_provided",
+          "payment_reference_provided",
+          "missing_history",
+          "refund_explicit"
+        ],
+        "required_missing": [],
+        "forbidden_missing": [
+          "sign_in_method",
+          "technical_symptom",
+          "error_details",
+          "billing_details",
+          "payment_reference"
+        ],
+        "reply_contains": [
+          "account access",
+          "support"
+        ],
+        "reply_omits": [
+          "Which sign-in method",
+          "Please share your sign-in method",
+          "Please describe what is missing or what happens when you sign in",
+          "Please share the bank payment reference",
+          "Please also share the payment reference",
+          "reconcile the charge and plan activation",
+          "Your refund request needs human review"
+        ],
+        "injection_detected": false,
+        "hostile_analysis_gate": false
+      }
+    },
+    {
+      "id": "semantic_check_07",
+      "label": "invoice_supplied_identity_not_requested_again",
+      "ticket": {
+        "id": "synthetic-semantic_check_07",
+        "received_at": "2036-09-14T16:00:00.000Z",
+        "subject": "Invoice with the billing identity already provided",
+        "body": "Please create an invoice for the most recent subscription payment. Billing name: Synthetic Cedar Desk. Billing address: 17 Demonstration Quay. Test tax identifier: SYN-TAX-240. These are the details to put on the invoice.",
+        "purchases": [
+          {
+            "id": "invented-semantic_check_07-payment-1",
+            "type": "renewal",
+            "amount_inr": 1499,
+            "status": "successful",
+            "at": "2036-09-13T10:00:00.000Z"
+          }
+        ],
+        "app_opens_since_renewal": 0
+      },
+      "expect": {
+        "categories": [
+          "invoice"
+        ],
+        "allowed_intents": [
+          "invoice"
+        ],
+        "forbidden_intents": [
+          "billing_refund",
+          "billing_status",
+          "cancellation",
+          "technical",
+          "account_access",
+          "feature_request",
+          "fraud",
+          "product_question",
+          "other"
+        ],
+        "required_intents": [
+          "invoice"
+        ],
+        "severities": [
+          "low",
+          "medium"
+        ],
+        "language": "english",
+        "reply_language": "english",
+        "refund_target": "unspecified",
+        "unsupported_language": false,
+        "refund_requested": false,
+        "refund_decisions": [
+          "not_requested"
+        ],
+        "max_refund_inr": 0,
+        "required_reported": [
+          "billing_details_provided"
+        ],
+        "forbidden_reported": [
+          "payment_reference_provided",
+          "refund_explicit",
+          "cancellation_explicit"
+        ],
+        "required_missing": [],
+        "forbidden_missing": [
+          "billing_details",
+          "sign_in_method",
+          "missing_account_data",
+          "request_goal"
+        ],
+        "reply_contains": [
+          "Thank you for the billing details",
+          "invoice"
+        ],
+        "reply_omits": [
+          "Please share the billing name",
+          "Which sign-in method",
+          "Please share your sign-in method",
+          "Your refund request needs human review",
+          "refund request is approved",
+          "Do you want to stop the next renewal"
+        ],
+        "injection_detected": false,
+        "hostile_analysis_gate": false
+      }
+    },
+    {
+      "id": "semantic_check_08",
+      "label": "hinglish_three_goals_all_preserved_no_fourth",
+      "ticket": {
+        "id": "synthetic-semantic_check_08",
+        "received_at": "2036-09-14T16:00:00.000Z",
+        "subject": "Renewal refund, future renewals aur invoice",
+        "body": "Latest Rs 249 monthly renewal ka refund chahiye; renewal ke baad app bilkul use nahi hui. Aage ke subscription renewals bhi rok do. Isi payment ka invoice bhi chahiye: billing name Synthetic Lantern Lab hai aur test tax identifier SYN-TAX-312 hai.",
+        "purchases": [
+          {
+            "id": "invented-semantic_check_08-payment-1",
+            "type": "renewal",
+            "amount_inr": 249,
+            "status": "successful",
+            "at": "2036-09-14T06:00:00.000Z"
+          }
+        ],
+        "app_opens_since_renewal": 0
+      },
+      "expect": {
+        "categories": [
+          "billing_refund",
+          "cancellation",
+          "invoice"
+        ],
+        "allowed_intents": [
+          "billing_refund",
+          "cancellation",
+          "invoice"
+        ],
+        "forbidden_intents": [
+          "billing_status",
+          "technical",
+          "account_access",
+          "feature_request",
+          "fraud",
+          "product_question",
+          "other"
+        ],
+        "required_intents": [
+          "billing_refund",
+          "cancellation",
+          "invoice"
+        ],
+        "severities": [
+          "medium",
+          "high"
+        ],
+        "language": "hinglish",
+        "reply_language": "hinglish",
+        "refund_target": "latest_renewal",
+        "unsupported_language": false,
+        "refund_requested": true,
+        "refund_decisions": [
+          "approved"
+        ],
+        "max_refund_inr": 249,
+        "required_reported": [
+          "refund_explicit",
+          "cancellation_explicit",
+          "billing_details_provided"
+        ],
+        "forbidden_reported": [
+          "payment_reference_provided",
+          "bank_debit_reported"
+        ],
+        "required_missing": [],
+        "forbidden_missing": [
+          "billing_details",
+          "cancellation_target",
+          "sign_in_method",
+          "missing_account_data"
+        ],
+        "reply_contains": [
+          "Rs 249",
+          "refund request approved hai",
+          "Aage ke renewals",
+          "Invoice dene se pehle"
+        ],
+        "reply_omits": [
+          "billing name aur tax details share karein",
+          "Cancellation ke liye aap next renewal rokna chahte hain ya account close",
+          "kaunsa sign-in method use kar rahe hain?",
+          "account access check karna hoga",
+          "App use karte waqt kya hota hai"
+        ],
+        "injection_detected": false,
+        "hostile_analysis_gate": false
+      }
+    },
+    {
+      "id": "semantic_check_09",
+      "label": "technical_and_invoice_supplied_context_preserved",
+      "ticket": {
+        "id": "synthetic-semantic_check_09",
+        "received_at": "2036-09-14T16:00:00.000Z",
+        "subject": "Search hangs and an invoice is needed",
+        "body": "Two requests. On my Galaxy Tab S9 running Android 16, Dhaba version 7.3.2 displays SEARCH_TIMEOUT when I tap Search and keeps the screen open. Please investigate that failure. Also issue an invoice using billing name Synthetic Field Notes and test tax identifier SYN-TAX-411.",
+        "purchases": [
+          {
+            "id": "invented-semantic_check_09-payment-1",
+            "type": "renewal",
+            "amount_inr": 249,
+            "status": "successful",
+            "at": "2036-09-14T06:00:00.000Z"
+          }
+        ],
+        "app_opens_since_renewal": 5
+      },
+      "expect": {
+        "categories": [
+          "technical",
+          "invoice"
+        ],
+        "allowed_intents": [
+          "technical",
+          "invoice"
+        ],
+        "forbidden_intents": [
+          "billing_refund",
+          "billing_status",
+          "cancellation",
+          "account_access",
+          "feature_request",
+          "fraud",
+          "product_question",
+          "other"
+        ],
+        "required_intents": [
+          "technical",
+          "invoice"
+        ],
+        "severities": [
+          "medium",
+          "high"
+        ],
+        "language": "english",
+        "reply_language": "english",
+        "refund_target": "unspecified",
+        "unsupported_language": false,
+        "refund_requested": false,
+        "refund_decisions": [
+          "not_requested"
+        ],
+        "max_refund_inr": 0,
+        "required_reported": [
+          "device_provided",
+          "app_version_provided",
+          "error_details_provided",
+          "billing_details_provided"
+        ],
+        "forbidden_reported": [
+          "payment_reference_provided",
+          "crash",
+          "refund_explicit",
+          "cancellation_explicit"
+        ],
+        "required_missing": [],
+        "forbidden_missing": [
+          "device",
+          "app_version",
+          "technical_symptom",
+          "error_details",
+          "billing_details",
+          "sign_in_method"
+        ],
+        "reply_contains": [
+          "support",
+          "invoice"
+        ],
+        "reply_omits": [
+          "Please share your app version",
+          "Please share your device and operating system",
+          "Please share your steps that trigger",
+          "Please share the steps",
+          "Please share the billing name",
+          "I'm sorry the app is crashing",
+          "Which sign-in method",
+          "Please share your sign-in method",
+          "Your refund request needs human review"
+        ],
+        "injection_detected": false,
+        "hostile_analysis_gate": false
+      }
+    },
+    {
+      "id": "semantic_check_10",
+      "label": "hinglish_benign_fraud_refund_cancellation_negations",
+      "ticket": {
+        "id": "synthetic-semantic_check_10",
+        "received_at": "2036-09-14T16:00:00.000Z",
+        "subject": "Sirf invoice, koi fraud complaint nahi",
+        "body": "Yeh fraud complaint nahi hai; monthly payment maine khud authorize kiya tha. Refund ya cancellation bhi nahi chahiye. Sirf isi subscription payment ka invoice bhej do.",
+        "purchases": [
+          {
+            "id": "invented-semantic_check_10-payment-1",
+            "type": "renewal",
+            "amount_inr": 249,
+            "status": "successful",
+            "at": "2036-09-14T06:00:00.000Z"
+          }
+        ],
+        "app_opens_since_renewal": 0
+      },
+      "expect": {
+        "categories": [
+          "invoice"
+        ],
+        "allowed_intents": [
+          "invoice"
+        ],
+        "forbidden_intents": [
+          "billing_refund",
+          "billing_status",
+          "cancellation",
+          "technical",
+          "account_access",
+          "feature_request",
+          "fraud",
+          "product_question",
+          "other"
+        ],
+        "required_intents": [
+          "invoice"
+        ],
+        "severities": [
+          "low",
+          "medium"
+        ],
+        "language": "hinglish",
+        "reply_language": "hinglish",
+        "refund_target": "unspecified",
+        "unsupported_language": false,
+        "refund_requested": false,
+        "refund_decisions": [
+          "not_requested"
+        ],
+        "max_refund_inr": 0,
+        "required_reported": [],
+        "forbidden_reported": [
+          "billing_details_provided",
+          "payment_reference_provided",
+          "refund_explicit",
+          "cancellation_explicit",
+          "bank_debit_reported"
+        ],
+        "required_missing": [
+          "billing_details"
+        ],
+        "forbidden_missing": [
+          "sign_in_method",
+          "missing_account_data",
+          "cancellation_target",
+          "technical_symptom"
+        ],
+        "reply_contains": [
+          "Invoice dene se pehle",
+          "billing name"
+        ],
+        "reply_omits": [
+          "urgent human review zaroori hai",
+          "bank se jaldi contact karein",
+          "Aapka refund request support agent ko review karna hoga",
+          "refund request approved hai",
+          "Cancellation ke liye aap next renewal rokna chahte hain",
+          "Aap next renewal rokna chahte hain, refund chahiye",
+          "account access check karna hoga",
+          "kaunsa sign-in method use kar rahe hain?",
+          "Sign-in method aur account access karte waqt"
+        ],
+        "injection_detected": false,
+        "hostile_analysis_gate": false
+      }
+    }
+  ]
+}
+

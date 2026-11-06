@@ -48,7 +48,10 @@
         ],
         "reply_omits": [],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false,
+        "refund_target": "latest_renewal"
       }
     },
     {
@@ -105,7 +108,9 @@
           "steps that trigger"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -162,7 +167,9 @@
           "refund request"
         ],
         "injection_detected": true,
-        "hostile_analysis_gate": true
+        "hostile_analysis_gate": true,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -214,7 +221,9 @@
           "payment reference"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -266,7 +275,9 @@
           "Rs 249 refund"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "hinglish",
+        "unsupported_language": false
       }
     },
     {
@@ -325,7 +336,9 @@
           "refund request is approved"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -373,7 +386,9 @@
           "feature has been added"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -427,7 +442,9 @@
           "refund request is approved"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -487,7 +504,9 @@
           "2 completed"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -540,7 +559,9 @@
           "invoice is attached"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -585,7 +606,9 @@
           "refund request"
         ],
         "injection_detected": true,
-        "hostile_analysis_gate": true
+        "hostile_analysis_gate": true,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -641,7 +664,9 @@
           "payment reference"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -699,7 +724,9 @@
           "Do you want to stop"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -748,7 +775,10 @@
         ],
         "reply_omits": [],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "hinglish",
+        "unsupported_language": false,
+        "refund_target": "latest_renewal"
       }
     },
     {
@@ -802,7 +832,9 @@
           "refund request"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -859,7 +891,9 @@
           "restart your"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -907,7 +941,9 @@
           "refund request"
         ],
         "injection_detected": true,
-        "hostile_analysis_gate": true
+        "hostile_analysis_gate": true,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -955,7 +991,9 @@
           "refund request"
         ],
         "injection_detected": true,
-        "hostile_analysis_gate": true
+        "hostile_analysis_gate": true,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -1008,7 +1046,9 @@
           "refund request"
         ],
         "injection_detected": true,
-        "hostile_analysis_gate": true
+        "hostile_analysis_gate": true,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -1048,7 +1088,9 @@
           "refund request"
         ],
         "injection_detected": true,
-        "hostile_analysis_gate": true
+        "hostile_analysis_gate": true,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -1101,7 +1143,9 @@
           "refund request"
         ],
         "injection_detected": true,
-        "hostile_analysis_gate": true
+        "hostile_analysis_gate": true,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -1149,7 +1193,10 @@
         ],
         "reply_omits": [],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false,
+        "refund_target": "trial"
       }
     },
     {
@@ -1204,7 +1251,9 @@
           "share your sign-in method"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     },
     {
@@ -1260,7 +1309,9 @@
           "refund request"
         ],
         "injection_detected": false,
-        "hostile_analysis_gate": false
+        "hostile_analysis_gate": false,
+        "reply_language": "english",
+        "unsupported_language": false
       }
     }
   ]

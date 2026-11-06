@@ -95,6 +95,25 @@ def main():
             timeout=10,
             check=True,
         )
+        fixture_dir = Path(__file__).resolve().parents[1] / "fixtures"
+        for filename, expected_count in [
+            ("hardening-cases.json", 64),
+            ("final-check-cases.json", 16),
+            ("semantic-check-cases.json", 10),
+        ]:
+            validation = subprocess.run(
+                [str(evaluate_live), "--cases", str(fixture_dir / filename), "--validate-only"],
+                cwd=work,
+                env=env,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
+                check=True,
+            )
+            validated = json.loads(validation.stdout)
+            require(validated["passed"] and validated["case_count"] == expected_count, "Invalid hardening corpus or money gates")
+            require(validated["provider_calls"] == 0, "Offline validation must not call a provider")
         with (work / "service.log").open("w+", encoding="utf-8") as log:
 
             def start():
@@ -134,6 +153,18 @@ def main():
                 require(request("/triage", changed)[0] == 409, "Changed payload did not conflict")
                 require(request("/metrics")[0] == 200, "Metrics endpoint failed")
 
+                hinglish_ticket = dict(
+                    ticket,
+                    id="ci-synthetic-hinglish",
+                    subject="Bhai app mein help chahiye",
+                    body="Bhai mera app nahi chal raha hai. Please help.",
+                )
+                status, hinglish_first, _ = request("/triage", hinglish_ticket)
+                hinglish = json.loads(hinglish_first)
+                require(status == 200 and hinglish["meta"]["language"] == "hinglish", "Hinglish reply metadata failed")
+                require(hinglish["reply_draft"].startswith("Kya hua aur aapko"), "Hinglish fallback text was not restored")
+                require(hinglish["needs_human"] and hinglish["refund"]["amount_inr"] == 0, "Hinglish fallback bypassed safety")
+
                 fixture = work / "synthetic.json"
                 fixture.write_text(json.dumps({"tickets": [ticket]}), encoding="utf-8")
                 evaluation = subprocess.run(
@@ -152,6 +183,8 @@ def main():
                 process = start()
                 status, persisted, _ = request("/triage", ticket)
                 require(status == 200 and persisted == first, "Restart lost the stored decision")
+                status, hinglish_persisted, _ = request("/triage", hinglish_ticket)
+                require(status == 200 and hinglish_persisted == hinglish_first, "Restart changed the Hinglish response")
             except BaseException:
                 if process is not None:
                     stop(process)
@@ -162,7 +195,7 @@ def main():
             finally:
                 if process is not None:
                     stop(process)
-    print("Replay smoke passed: health, triage, replay/conflict, metrics, evaluate, live fixtures, rereview help, restart.")
+    print("Replay smoke passed: health, English/Hinglish triage, replay/conflict, metrics, evaluate, live fixtures, rereview help, restart.")
 
 
 if __name__ == "__main__":

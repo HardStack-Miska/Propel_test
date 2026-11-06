@@ -72,6 +72,19 @@ pub enum Language {
     Hinglish,
 }
 
+/// The customer's requested scope, never a payment selected by the model.
+/// Only local policy can match this scope to trusted purchase records.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RefundTarget {
+    #[default]
+    Unspecified,
+    Trial,
+    LatestRenewal,
+    AllPayments,
+    OtherPayment,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Analysis {
@@ -91,6 +104,12 @@ pub struct Analysis {
 pub struct AnalysisDetails {
     #[serde(default)]
     pub secondary_intent: Option<Category>,
+    #[serde(default)]
+    pub additional_intents: Vec<Category>,
+    #[serde(default)]
+    pub refund_target: RefundTarget,
+    #[serde(default)]
+    pub unsupported_language: bool,
     #[serde(default)]
     pub reported: Vec<ReportedFact>,
     #[serde(default)]
@@ -136,7 +155,19 @@ pub enum MissingDetail {
 }
 
 impl Analysis {
+    pub fn intent_categories(&self) -> Vec<Category> {
+        std::iter::once(self.category)
+            .chain(self.details.secondary_intent)
+            .chain(self.details.additional_intents.iter().copied())
+            .collect()
+    }
+
+    pub fn has_intent(&self, category: Category) -> bool {
+        self.intent_categories().contains(&category)
+    }
+
     pub fn validate(&self) -> bool {
+        let intents = self.intent_categories();
         self.confidence.is_finite()
             && (0.0..=1.0).contains(&self.confidence)
             && self.details.reported.len() <= 8
@@ -146,12 +177,54 @@ impl Analysis {
             && self.details.missing.iter().collect::<HashSet<_>>().len()
                 == self.details.missing.len()
             && self.details.secondary_intent != Some(self.category)
+            && self.details.additional_intents.len() <= 3
+            && intents.len() <= 4
+            && intents
+                .iter()
+                .enumerate()
+                .all(|(index, intent)| !intents[..index].contains(intent))
+            && (!self.details.unsupported_language
+                || (self.category == Category::Other
+                    && self.confidence == 0.0
+                    && !self.refund_requested
+                    && self.details.refund_target == RefundTarget::Unspecified
+                    && self.details.secondary_intent.is_none()
+                    && self.details.additional_intents.is_empty()))
+    }
+
+    /// Providers use the complete current contract. Older checked-in fixtures
+    /// may still deserialize through serde defaults, never through this path.
+    pub(crate) fn parse_model_json(content: &str) -> Option<Self> {
+        let mut analysis: Self = serde_json::from_str(content).ok()?;
+        let value: serde_json::Value = serde_json::from_str(content).ok()?;
+        let details = value.get("details")?.as_object()?;
+        if ![
+            "secondary_intent",
+            "additional_intents",
+            "refund_target",
+            "unsupported_language",
+            "reported",
+            "missing",
+        ]
+        .iter()
+        .all(|field| details.contains_key(*field))
+            || !analysis.validate()
+        {
+            return None;
+        }
+        analysis.normalize_details();
+        Some(analysis)
     }
 
     /// Resolve contradictory clarification flags using only existing typed
     /// evidence. This neither reads customer text nor adds facts or authority.
     /// Providers call this after validating the original output's shape/limits.
     pub fn normalize_details(&mut self) {
+        let needs_billing_identity = self.has_intent(Category::Invoice)
+            && !self
+                .details
+                .reported
+                .contains(&ReportedFact::BillingDetailsProvided);
         let reported = &self.details.reported;
         self.details.missing.retain(|missing| {
             let provided = match missing {
@@ -190,6 +263,20 @@ impl Analysis {
             };
             !provided
         });
+        // Invoice replies need a billing identity unless supplied evidence was
+        // retained. Derive that unanswered question rather than relying on a
+        // second model prediction to repeat the renderer's known requirement.
+        // A multi-goal ticket can defer it when four other questions fill the
+        // bounded contract; never exceed the limit or discard supplied facts.
+        if needs_billing_identity
+            && self.details.missing.len() < 4
+            && !self
+                .details
+                .missing
+                .contains(&MissingDetail::BillingDetails)
+        {
+            self.details.missing.push(MissingDetail::BillingDetails);
+        }
     }
 }
 
@@ -322,6 +409,7 @@ mod tests {
                 secondary_intent: Some(Category::Cancellation),
                 reported,
                 missing,
+                ..Default::default()
             },
         }
     }
@@ -391,5 +479,146 @@ mod tests {
         no_evidence.normalize_details();
         assert_eq!(serde_json::to_value(&no_evidence).unwrap(), before);
         assert!(no_evidence.details.reported.is_empty());
+    }
+
+    #[test]
+    fn invoice_clarification_matches_supplied_identity_and_preserves_question_limit() {
+        let mut value = analysis(Vec::new(), vec![MissingDetail::PaymentReference]);
+        value.details.secondary_intent = Some(Category::Invoice);
+        value.normalize_details();
+        assert_eq!(
+            value.details.missing,
+            vec![
+                MissingDetail::PaymentReference,
+                MissingDetail::BillingDetails
+            ]
+        );
+        let once = serde_json::to_value(&value).unwrap();
+        value.normalize_details();
+        assert_eq!(serde_json::to_value(&value).unwrap(), once);
+        assert!(value.validate());
+
+        value.details.reported = vec![ReportedFact::BillingDetailsProvided];
+        value.normalize_details();
+        assert_eq!(value.details.missing, vec![MissingDetail::PaymentReference]);
+
+        value.details.reported.clear();
+        value.details.missing = vec![
+            MissingDetail::Device,
+            MissingDetail::AppVersion,
+            MissingDetail::ErrorDetails,
+            MissingDetail::PaymentReference,
+        ];
+        value.normalize_details();
+        assert_eq!(value.details.missing.len(), 4);
+        assert!(value.validate());
+    }
+
+    #[test]
+    fn all_requested_intents_are_preserved_up_to_four_unique_categories() {
+        let mut value = analysis(Vec::new(), Vec::new());
+        value.category = Category::BillingRefund;
+        value.details.additional_intents = vec![Category::Invoice, Category::AccountAccess];
+        assert!(value.validate());
+        assert_eq!(
+            value.intent_categories(),
+            vec![
+                Category::BillingRefund,
+                Category::Cancellation,
+                Category::Invoice,
+                Category::AccountAccess
+            ]
+        );
+        for category in value.intent_categories() {
+            assert!(value.has_intent(category));
+        }
+        assert!(!value.has_intent(Category::Fraud));
+        value.details.additional_intents.push(Category::Technical);
+        assert!(!value.validate());
+    }
+
+    #[test]
+    fn additional_intents_cannot_duplicate_primary_secondary_or_each_other() {
+        for additional in [
+            vec![Category::Technical],
+            vec![Category::Cancellation],
+            vec![Category::Invoice, Category::Invoice],
+        ] {
+            let mut value = analysis(Vec::new(), Vec::new());
+            value.details.additional_intents = additional;
+            assert!(!value.validate());
+        }
+    }
+
+    #[test]
+    fn unsupported_language_cannot_carry_a_refund_or_actionable_intents() {
+        let mut value = analysis(Vec::new(), Vec::new());
+        value.category = Category::Other;
+        value.confidence = 0.0;
+        value.details.secondary_intent = None;
+        value.details.unsupported_language = true;
+        assert!(value.validate());
+        value.refund_requested = true;
+        assert!(!value.validate());
+        value.refund_requested = false;
+        value.details.refund_target = RefundTarget::LatestRenewal;
+        assert!(!value.validate());
+        value.details.refund_target = RefundTarget::Unspecified;
+        value.details.additional_intents = vec![Category::Cancellation];
+        assert!(!value.validate());
+        value.details.additional_intents.clear();
+        value.confidence = 0.1;
+        assert!(!value.validate());
+    }
+
+    #[test]
+    fn refund_target_is_typed_and_never_rewritten_by_normalization() {
+        for target in [
+            RefundTarget::Unspecified,
+            RefundTarget::Trial,
+            RefundTarget::LatestRenewal,
+            RefundTarget::AllPayments,
+            RefundTarget::OtherPayment,
+        ] {
+            let mut value = analysis(vec![ReportedFact::RefundExplicit], Vec::new());
+            value.refund_requested = true;
+            value.details.refund_target = target;
+            let encoded = serde_json::to_string(&value).unwrap();
+            let mut decoded: Analysis = serde_json::from_str(&encoded).unwrap();
+            decoded.normalize_details();
+            assert_eq!(decoded.details.refund_target, target);
+            assert!(decoded.validate());
+        }
+    }
+
+    #[test]
+    fn provider_parser_requires_every_new_details_field_but_fixture_defaults_remain_safe() {
+        let value = analysis(Vec::new(), Vec::new());
+        let encoded = serde_json::to_value(&value).unwrap();
+        assert!(Analysis::parse_model_json(&encoded.to_string()).is_some());
+        for field in [
+            "secondary_intent",
+            "additional_intents",
+            "refund_target",
+            "unsupported_language",
+            "reported",
+            "missing",
+        ] {
+            let mut incomplete = encoded.clone();
+            incomplete["details"].as_object_mut().unwrap().remove(field);
+            assert!(
+                Analysis::parse_model_json(&incomplete.to_string()).is_none(),
+                "accepted missing {field}"
+            );
+            assert!(serde_json::from_value::<Analysis>(incomplete).is_ok());
+        }
+        let legacy: Analysis = serde_json::from_value(serde_json::json!({
+            "category":"billing_refund","severity":"high","language":"english",
+            "confidence":0.9,"refund_requested":true
+        }))
+        .unwrap();
+        assert_eq!(legacy.details.refund_target, RefundTarget::Unspecified);
+        assert!(legacy.details.additional_intents.is_empty());
+        assert!(!legacy.details.unsupported_language);
     }
 }

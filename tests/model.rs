@@ -28,7 +28,9 @@ fn ticket() -> Ticket {
 
 fn valid_analysis() -> String {
     json!({"category":"product_question", "severity":"low", "language":"english",
-        "confidence":0.91, "refund_requested":false})
+        "confidence":0.91, "refund_requested":false,
+        "details":{"secondary_intent":null,"additional_intents":[],"refund_target":"unspecified",
+            "unsupported_language":false,"reported":[],"missing":[]}})
     .to_string()
 }
 
@@ -155,6 +157,8 @@ async fn prose_is_retried_once_and_only_typed_analysis_is_accepted() {
         assert_eq!(request["stream"], false);
         assert_eq!(request["format"], "json");
         assert_eq!(request["options"]["temperature"], 0);
+        assert_eq!(request["options"]["num_predict"], 512);
+        assert!(request.get("tools").is_none());
         assert!(
             request["messages"][0]["content"]
                 .as_str()
@@ -474,7 +478,9 @@ async fn cached_classification_recomputes_refund_from_each_tickets_billing() {
     };
     let refund_analysis =
         json!({"category":"billing_refund","severity":"high","language":"english",
-        "confidence":0.99,"refund_requested":true})
+        "confidence":0.99,"refund_requested":true,
+        "details":{"secondary_intent":null,"additional_intents":[],"refund_target":"latest_renewal",
+            "unsupported_language":false,"reported":["refund_explicit"],"missing":[]}})
         .to_string();
     let server = MockServer::start(vec![Scripted::content(&refund_analysis)]).await;
     let analyzer = server.analyzer(Duration::from_secs(2));
@@ -529,4 +535,119 @@ async fn explicit_namespace_and_disabled_cache_do_not_reuse_entries() {
     assert!(!disabled.analyze(&ticket()).await.cached);
     assert!(!disabled.analyze(&ticket()).await.cached);
     assert_eq!(server.hits(), 4);
+}
+
+#[tokio::test]
+async fn local_provider_requires_the_complete_current_details_schema() {
+    for field in [
+        "secondary_intent",
+        "additional_intents",
+        "refund_target",
+        "unsupported_language",
+        "reported",
+        "missing",
+    ] {
+        let mut content: Value = serde_json::from_str(&valid_analysis()).unwrap();
+        content["details"].as_object_mut().unwrap().remove(field);
+        let invalid = content.to_string();
+        let server = MockServer::start(vec![
+            Scripted::content(&invalid),
+            Scripted::content(&invalid),
+        ])
+        .await;
+        let result = server
+            .analyzer(Duration::from_secs(2))
+            .analyze(&ticket())
+            .await;
+        assert_eq!(
+            result.source,
+            AnalysisSource::Fallback,
+            "accepted missing {field}"
+        );
+        assert_eq!(
+            result.degraded_reason.as_deref(),
+            Some("model_invalid_response")
+        );
+        assert_eq!(server.hits(), 2);
+    }
+}
+
+#[tokio::test]
+async fn local_provider_rejects_tool_calls_function_calls_and_hidden_thinking() {
+    for (field, value) in [
+        (
+            "tool_calls",
+            json!([{"function":{"name":"stop_process","arguments":{"pid":1}}}]),
+        ),
+        (
+            "function_call",
+            json!({"name":"drop_database","arguments":"{}"}),
+        ),
+        ("thinking", json!("private extra reasoning")),
+    ] {
+        let mut response: Value = serde_json::from_str(&envelope(&valid_analysis())).unwrap();
+        response["message"][field] = value;
+        let invalid = response.to_string();
+        let server =
+            MockServer::start(vec![Scripted::body(&invalid), Scripted::body(&invalid)]).await;
+        let result = server
+            .analyzer(Duration::from_secs(2))
+            .analyze(&ticket())
+            .await;
+        assert_eq!(result.source, AnalysisSource::Fallback, "accepted {field}");
+        assert_eq!(
+            result.degraded_reason.as_deref(),
+            Some("model_invalid_response")
+        );
+        assert!(!result.analysis.refund_requested);
+        assert_eq!(server.hits(), 2);
+    }
+}
+
+#[tokio::test]
+async fn local_provider_preserves_all_distinct_goals_and_trial_only_scope() {
+    use dhaba_triage::domain::RefundTarget;
+    let mut content: Value = serde_json::from_str(&valid_analysis()).unwrap();
+    content["category"] = json!("billing_refund");
+    content["refund_requested"] = json!(true);
+    content["details"]["refund_target"] = json!("trial");
+    content["details"]["secondary_intent"] = json!("cancellation");
+    content["details"]["additional_intents"] = json!(["invoice"]);
+    let server = MockServer::start(vec![Scripted::content(&content.to_string())]).await;
+    let mut input = ticket();
+    input.body = "Refund only the trial fee, cancel future renewals, and send an invoice.".into();
+    let result = server
+        .analyzer(Duration::from_secs(2))
+        .analyze(&input)
+        .await;
+    assert_eq!(result.source, AnalysisSource::Ollama);
+    assert_eq!(result.analysis.details.refund_target, RefundTarget::Trial);
+    assert_eq!(
+        result.analysis.intent_categories(),
+        vec![
+            Category::BillingRefund,
+            Category::Cancellation,
+            Category::Invoice
+        ]
+    );
+}
+
+#[tokio::test]
+async fn local_provider_preserves_safe_unsupported_language_handoff() {
+    let mut content: Value = serde_json::from_str(&valid_analysis()).unwrap();
+    content["category"] = json!("other");
+    content["confidence"] = json!(0.0);
+    content["details"]["unsupported_language"] = json!(true);
+    let server = MockServer::start(vec![Scripted::content(&content.to_string())]).await;
+    let mut input = ticket();
+    input.body = "Пожалуйста, верните оплату.".into();
+    let result = server
+        .analyzer(Duration::from_secs(2))
+        .analyze(&input)
+        .await;
+    assert_eq!(result.source, AnalysisSource::Ollama);
+    assert!(result.analysis.details.unsupported_language);
+    assert_eq!(result.analysis.category, Category::Other);
+    assert_eq!(result.analysis.confidence, 0.0);
+    assert!(!result.analysis.refund_requested);
 }

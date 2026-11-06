@@ -32,7 +32,8 @@ fn decision(ticket: &Ticket, recovered: bool) -> TriageResult {
     let outcome: AnalysisOutcome = serde_json::from_value(json!({
         "analysis": {
             "category": "billing_refund", "severity": "medium", "language": "english",
-            "confidence": if recovered { 0.99 } else { 0.0 }, "refund_requested": true
+            "confidence": if recovered { 0.99 } else { 0.0 }, "refund_requested": true,
+            "details": {"refund_target":"latest_renewal"}
         },
         "source": if recovered { "replay" } else { "fallback" },
         "attempts": 0,

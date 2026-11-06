@@ -49,7 +49,10 @@ async fn duplicate_waits_for_original_analysis_and_changed_payload_conflicts() {
                     release.notified().await;
                     Json(json!({"message":{"role":"assistant","content":
                     json!({"category":"technical","severity":"medium","language":"english",
-                        "confidence":0.99,"refund_requested":false}).to_string()},
+                        "confidence":0.99,"refund_requested":false,
+                        "details":{"secondary_intent":null,"additional_intents":[],
+                            "refund_target":"unspecified","unsupported_language":false,
+                            "reported":[],"missing":[]}}).to_string()},
                     "done":true,"done_reason":"stop"}))
                 }
             }

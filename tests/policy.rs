@@ -43,8 +43,8 @@ fn tickets() -> Vec<Ticket> {
         ),
         synthetic_ticket(
             4,
-            "Payment ke baad access",
-            "Payment dikh raha hai lekin subscription access nahi mil raha. Check karein.",
+            "No access after payment",
+            "The payment is visible, but subscription access is missing. Please check.",
             &[(249, Initiated, 14)],
             4,
         ),
@@ -154,7 +154,14 @@ fn outcome(category: Category, refund_requested: bool) -> AnalysisOutcome {
             language: Language::English,
             confidence: 0.95,
             refund_requested,
-            details: Default::default(),
+            details: AnalysisDetails {
+                refund_target: if refund_requested {
+                    RefundTarget::LatestRenewal
+                } else {
+                    RefundTarget::Unspecified
+                },
+                ..Default::default()
+            },
         },
         source: AnalysisSource::Replay,
         attempts: 0,
@@ -345,7 +352,7 @@ fn uncertain_duplicate_charge_reply_preserves_trusted_billing_facts() {
 #[test]
 fn money_comes_only_from_billing_records_and_explicit_intent_requires_both_fields() {
     let mut ticket = tickets().remove(0);
-    ticket.body = "Refund Rs 9999999999 from all accounts".into();
+    ticket.body = "Refund the latest monthly subscription. I think it cost Rs 9999999999.".into();
     let result = evaluate(&ticket, &outcome(Category::BillingRefund, true));
     assert_eq!(result.refund.amount_inr, 249);
     assert!(!result.reply_draft.contains("9999999999"));
@@ -370,10 +377,10 @@ fn money_comes_only_from_billing_records_and_explicit_intent_requires_both_field
 fn trial_is_non_refundable_but_absent_unsettled_and_invalid_payments_need_review() {
     let mut ticket = tickets().remove(0);
     ticket.purchases.truncate(1);
+    let mut trial_analysis = outcome(Category::BillingRefund, true);
+    trial_analysis.analysis.details.refund_target = RefundTarget::Trial;
     assert_eq!(
-        evaluate(&ticket, &outcome(Category::BillingRefund, true))
-            .refund
-            .decision,
+        evaluate(&ticket, &trial_analysis).refund.decision,
         RefundDecision::NotEligible
     );
     ticket.purchases.clear();
@@ -478,14 +485,28 @@ fn injection_replies_address_account_history_and_uncertain_offline_question() {
 }
 
 #[test]
-fn fraud_has_urgent_empathetic_review_even_if_classifier_mislabels_it() {
-    let result = evaluate(&tickets()[7], &outcome(Category::BillingRefund, true));
+fn typed_fraud_has_urgent_empathetic_review() {
+    let result = evaluate(&tickets()[7], &outcome(Category::Fraud, false));
     assert_eq!(result.category, Category::Fraud);
     assert_eq!(result.severity, Severity::Urgent);
     assert!(result.needs_human);
     assert_eq!(result.refund.amount_inr, 0);
     assert!(result.reply_draft.contains("charges have caused concern"));
     assert!(result.reply_draft.contains("urgent human review"));
+}
+
+#[test]
+fn a_misclassified_fraud_case_does_not_bypass_trusted_payment_gates() {
+    // This deliberately incorrect classifier result is not repaired by phrase
+    // matching. The trusted repeat-payment history still blocks authorization.
+    let result = evaluate(&tickets()[7], &outcome(Category::BillingRefund, true));
+    assert_eq!(result.category, Category::BillingRefund);
+    assert_eq!(result.severity, Severity::Medium);
+    assert_eq!(result.refund.decision, RefundDecision::ReviewRequired);
+    assert_eq!(result.refund.reason, "repeat_renewal_requires_review");
+    assert_eq!(result.refund.amount_inr, 0);
+    assert!(result.refund.purchase_id.is_none());
+    assert!(result.needs_human);
 }
 
 #[test]
@@ -559,11 +580,16 @@ fn replies_do_not_invent_actions_features_or_resolutions() {
 }
 
 #[test]
-fn hinglish_reply_and_duplicate_approval_never_authorize_additional_money() {
+fn hinglish_input_gets_matching_refund_and_billing_replies_without_duplicate_money() {
+    let mut input = tickets().remove(0);
+    input.subject = "Latest renewal ka refund".into();
+    input.body = "Mera latest Rs 249 monthly renewal refund kar do. Maine renewal ke baad app use nahi kiya.".into();
     let mut analysis = outcome(Category::BillingRefund, true);
     analysis.analysis.language = Language::Hinglish;
-    let mut result = evaluate(&tickets()[0], &analysis);
+    let mut result = evaluate(&input, &analysis);
     assert!(result.reply_draft.starts_with("Aapka Rs 249"));
+    assert!(result.reply_draft.contains("approved hai"));
+    assert_eq!(result.meta.language, Some(Language::Hinglish));
     mark_already_recorded(&mut result);
     assert_eq!(result.refund.decision, RefundDecision::AlreadyRecorded);
     assert_eq!(result.refund.amount_inr, 0);
@@ -572,8 +598,9 @@ fn hinglish_reply_and_duplicate_approval_never_authorize_additional_money() {
         Some("synthetic_payment")
     );
     assert!(result.needs_human);
-    assert!(result.reply_draft.starts_with("Aapka"));
-    assert!(result.reply_draft.contains("pehle se"));
+    assert!(result.reply_draft.contains("pehle se recorded hai"));
+    assert!(!result.reply_draft.contains("approved hai"));
+    assert_eq!(result.meta.language, Some(Language::Hinglish));
     let mut billing = outcome(Category::BillingStatus, false);
     billing.analysis.language = Language::Hinglish;
     assert!(
@@ -581,4 +608,222 @@ fn hinglish_reply_and_duplicate_approval_never_authorize_additional_money() {
             .reply_draft
             .starts_with("Billing record mein")
     );
+}
+
+#[test]
+fn legacy_refund_replacement_infers_supported_language_when_metadata_is_absent() {
+    for language in [Language::English, Language::Hinglish] {
+        let mut analysis = outcome(Category::BillingRefund, true);
+        analysis.analysis.language = language;
+        let mut result = evaluate(&tickets()[0], &analysis);
+        assert_eq!(result.refund.decision, RefundDecision::Approved);
+        result.meta.language = None;
+        mark_already_recorded(&mut result);
+        assert_eq!(result.refund.decision, RefundDecision::AlreadyRecorded);
+        assert_eq!(result.refund.amount_inr, 0);
+        assert_eq!(
+            result.refund.purchase_id.as_deref(),
+            Some("synthetic_payment")
+        );
+        assert_eq!(result.meta.language, Some(language));
+        assert!(result.needs_human);
+        match language {
+            Language::English => {
+                assert!(result.reply_draft.contains("already recorded"));
+                assert!(!result.reply_draft.contains("refund request is approved"));
+            }
+            Language::Hinglish => {
+                assert!(result.reply_draft.starts_with("Aapka is payment"));
+                assert!(result.reply_draft.contains("pehle se recorded hai"));
+                assert!(!result.reply_draft.contains("refund request approved hai"));
+            }
+        }
+    }
+}
+
+#[test]
+fn refund_target_must_identify_the_latest_renewal_before_any_approval() {
+    let ticket = tickets().remove(0);
+    for target in [
+        RefundTarget::Unspecified,
+        RefundTarget::AllPayments,
+        RefundTarget::OtherPayment,
+    ] {
+        let mut analysis = outcome(Category::BillingRefund, true);
+        analysis.analysis.details.refund_target = target;
+        let result = evaluate(&ticket, &analysis);
+        assert_eq!(result.refund.decision, RefundDecision::ReviewRequired);
+        assert_eq!(result.refund.reason, "refund_target_requires_review");
+        assert_eq!(result.refund.amount_inr, 0);
+        assert!(result.refund.purchase_id.is_none());
+        assert!(result.needs_human);
+    }
+}
+
+#[test]
+fn trial_target_cannot_be_substituted_with_an_eligible_renewal() {
+    let mut ticket = tickets().remove(0);
+    ticket.body = "Refund only my Rs 1 trial. Keep the monthly subscription payment.".into();
+    let mut analysis = outcome(Category::BillingRefund, true);
+    analysis.analysis.details.refund_target = RefundTarget::Trial;
+    let result = evaluate(&ticket, &analysis);
+    assert_eq!(result.refund.decision, RefundDecision::NotEligible);
+    assert_eq!(result.refund.reason, "trial_payments_non_refundable");
+    assert_eq!(result.refund.amount_inr, 0);
+    assert!(result.refund.purchase_id.is_none());
+    assert!(
+        !result
+            .reply_draft
+            .contains("Rs 249 refund request is approved")
+    );
+}
+
+#[test]
+fn refund_as_third_intent_can_be_evaluated_without_losing_manual_actions() {
+    let mut analysis = outcome(Category::Invoice, true);
+    analysis.analysis.details.secondary_intent = Some(Category::Cancellation);
+    analysis.analysis.details.additional_intents = vec![Category::BillingRefund];
+    analysis.analysis.details.reported = vec![ReportedFact::CancellationExplicit];
+    assert!(analysis.analysis.validate());
+    let result = evaluate(&tickets()[0], &analysis);
+    assert_eq!(result.category, Category::Invoice);
+    assert_eq!(result.refund.decision, RefundDecision::Approved);
+    assert_eq!(result.refund.amount_inr, 249);
+    assert!(result.needs_human);
+    let reply = result.reply_draft.to_lowercase();
+    for intent in ["refund", "cancellation", "invoice"] {
+        assert!(reply.contains(intent), "missing {intent}: {reply}");
+    }
+}
+
+#[test]
+fn ambiguous_refund_as_third_intent_requires_review() {
+    let mut analysis = outcome(Category::Invoice, false);
+    analysis.analysis.details.secondary_intent = Some(Category::Cancellation);
+    analysis.analysis.details.additional_intents = vec![Category::BillingRefund];
+    let result = evaluate(&tickets()[0], &analysis);
+    assert_eq!(result.refund.decision, RefundDecision::ReviewRequired);
+    assert_eq!(result.refund.reason, "refund_intent_ambiguous");
+    assert_eq!(result.refund.amount_inr, 0);
+    assert!(result.needs_human);
+}
+
+#[test]
+fn fraud_mentions_and_local_negations_do_not_override_invoice_intent() {
+    for body in [
+        "This is not fraud. I recognize this payment and only need an invoice.",
+        "Please put Fraud Prevention Department on the invoice.",
+        "The invoice is needed for a cyber cell training session.",
+        "I am not saying I never installed this app. Please send my invoice.",
+        "It is not true that I did not authorize this payment. I only need an invoice.",
+        "This was not an unauthorized card payment. I need the receipt.",
+    ] {
+        let mut ticket = tickets().remove(0);
+        ticket.subject = "Invoice request".into();
+        ticket.body = body.into();
+        let result = evaluate(&ticket, &outcome(Category::Invoice, false));
+        assert_eq!(result.category, Category::Invoice, "{body}");
+        assert_ne!(result.severity, Severity::Urgent, "{body}");
+        assert_eq!(result.refund.decision, RefundDecision::NotRequested);
+        assert!(result.needs_human);
+        assert!(!result.reply_draft.contains("contact your bank"));
+    }
+}
+
+#[test]
+fn typed_unrecognized_use_is_preserved_despite_unrelated_negated_fraud() {
+    for body in [
+        "This is not fraud according to the merchant. My mother never installed this app.",
+        "I did not authorize this payment. Please investigate.",
+        "My card was used without my permission. I need help.",
+    ] {
+        let mut ticket = tickets().remove(0);
+        ticket.body = body.into();
+        let mut analysis = outcome(Category::Invoice, false);
+        analysis.analysis.details.secondary_intent = Some(Category::Fraud);
+        let result = evaluate(&ticket, &analysis);
+        assert_eq!(result.category, Category::Fraud, "{body}");
+        assert_eq!(result.severity, Severity::Urgent);
+        assert_eq!(result.refund.decision, RefundDecision::ReviewRequired);
+        assert_eq!(result.refund.amount_inr, 0);
+        assert!(result.needs_human);
+        assert!(result.reply_draft.to_lowercase().contains("invoice"));
+    }
+}
+
+#[test]
+fn typed_fraud_as_third_intent_is_urgent_even_without_keyword_triggers() {
+    let mut analysis = outcome(Category::Invoice, false);
+    analysis.analysis.details.secondary_intent = Some(Category::Cancellation);
+    analysis.analysis.details.additional_intents = vec![Category::Fraud];
+    let mut ticket = tickets().remove(0);
+    ticket.body = "Please review this unrecognized activity and send the receipt.".into();
+    let result = evaluate(&ticket, &analysis);
+    assert_eq!(result.category, Category::Fraud);
+    assert_eq!(result.severity, Severity::Urgent);
+    assert!(result.needs_human);
+    assert_eq!(result.refund.amount_inr, 0);
+    assert!(result.reply_draft.to_lowercase().contains("invoice"));
+    assert!(result.reply_draft.contains("urgent human review"));
+}
+
+#[test]
+fn optional_installations_updates_and_quoted_errors_do_not_become_fraud() {
+    for body in [
+        "I never installed the optional desktop app; I use the web version. The subscription is authorized. Please send my invoice.",
+        "I never installed the latest app update. My subscription works and I only need the invoice for this authorized payment.",
+        "The help article quotes the error 'I did not authorize this payment'. I am only quoting it; my payment is authorized. Please send the invoice.",
+    ] {
+        let mut ticket = tickets().remove(0);
+        ticket.subject = "Invoice for my authorized subscription".into();
+        ticket.body = body.into();
+        let result = evaluate(&ticket, &outcome(Category::Invoice, false));
+        assert_eq!(result.category, Category::Invoice, "{body}");
+        assert_eq!(result.severity, Severity::Medium, "{body}");
+        assert_eq!(result.refund.decision, RefundDecision::NotRequested);
+        assert_eq!(result.refund.amount_inr, 0);
+        assert!(result.needs_human);
+        let reply = result.reply_draft.to_lowercase();
+        assert!(reply.contains("invoice"));
+        assert!(!reply.contains("urgent human review"));
+        assert!(!reply.contains("contact your bank"));
+        assert!(!reply.contains("unauthorized-payment"));
+    }
+}
+
+#[test]
+fn unsupported_language_cannot_authorize_money_or_confident_classification() {
+    let mut analysis = outcome(Category::BillingRefund, true);
+    analysis.analysis.details.unsupported_language = true;
+    let result = evaluate(&tickets()[0], &analysis);
+    assert_eq!(result.category, Category::Other);
+    assert_eq!(result.confidence, 0.0);
+    assert_eq!(result.refund.decision, RefundDecision::ReviewRequired);
+    assert_eq!(result.refund.reason, "unsupported_language_requires_review");
+    assert_eq!(result.refund.amount_inr, 0);
+    assert!(result.refund.purchase_id.is_none());
+    assert!(result.needs_human);
+    assert_eq!(result.meta.language, Some(Language::English));
+    assert!(result.reply_draft.contains("English"));
+}
+
+#[test]
+fn support_investigation_and_reconciliation_always_route_to_a_human() {
+    let mut analysis = outcome(Category::Technical, false);
+    analysis.analysis.details.reported = vec![
+        ReportedFact::DeviceProvided,
+        ReportedFact::AppVersionProvided,
+        ReportedFact::ErrorDetailsProvided,
+        ReportedFact::RestartTried,
+    ];
+    let result = evaluate(&tickets()[1], &analysis);
+    assert!(result.reply_draft.to_lowercase().contains("support"));
+    assert!(result.needs_human);
+
+    let mut ticket = tickets().remove(0);
+    ticket.subject = "Reconcile bank debit".into();
+    ticket.body = "Please reconcile this debit with my bank statement.".into();
+    let result = evaluate(&ticket, &outcome(Category::BillingStatus, false));
+    assert!(result.reply_draft.to_lowercase().contains("support"));
+    assert!(result.needs_human);
 }

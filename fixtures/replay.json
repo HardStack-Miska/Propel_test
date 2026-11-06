@@ -11,7 +11,10 @@
         "refund_explicit",
         "bank_debit_reported"
       ],
-      "missing": []
+      "missing": [],
+      "additional_intents": [],
+      "refund_target": "latest_renewal",
+      "unsupported_language": false
     }
   },
   "f34cbac688d45244c74531ebf4545d3311be885acf559fdd062121ff90779226": {
@@ -28,7 +31,10 @@
       ],
       "missing": [
         "app_version"
-      ]
+      ],
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false
     }
   },
   "81cd6869ed30fa8f44037d8ed05547519b52062a7d39d1aa7956017707551d9f": {
@@ -43,7 +49,10 @@
         "google_sign_in",
         "missing_history"
       ],
-      "missing": []
+      "missing": [],
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false
     }
   },
   "8b36a8540fc0fd3a6a30afb353d10e57688e00cd1d0f7f2e8473da0a1295cf06": {
@@ -57,7 +66,10 @@
       "reported": [],
       "missing": [
         "cancellation_target"
-      ]
+      ],
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false
     }
   },
   "0f9afbce71c4b5a749c3dd1075f4320d07bb8d5a803f72f2c032881b6ba206b5": {
@@ -73,7 +85,10 @@
       ],
       "missing": [
         "payment_reference"
-      ]
+      ],
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false
     }
   },
   "d0cc6de26c2c7b1c507b4e0fa7095a536f32f9283b10774ba1e7be2830f4b8c2": {
@@ -89,7 +104,10 @@
         "refund_explicit",
         "bank_debit_reported"
       ],
-      "missing": []
+      "missing": [],
+      "additional_intents": [],
+      "refund_target": "latest_renewal",
+      "unsupported_language": false
     }
   },
   "a2a88fd72908bb77d800159b881b8c8428fecbf47ebe5ef625de4bd3b2793718": {
@@ -101,7 +119,10 @@
     "details": {
       "secondary_intent": null,
       "reported": [],
-      "missing": []
+      "missing": [],
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false
     }
   },
   "975c46f7a655f45a73fc190518e35c7538429e883c286461cc9c6ebc1449db82": {
@@ -115,7 +136,10 @@
       "reported": [],
       "missing": [
         "payment_reference"
-      ]
+      ],
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false
     }
   },
   "d1af63d90f9db0487829edbb8d006d1a8f494848e9cfcf24330be57b7dc9f81a": {
@@ -131,7 +155,10 @@
       ],
       "missing": [
         "payment_reference"
-      ]
+      ],
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false
     }
   },
   "7721b8f204549c898c7231a82d0b37ca15d3fa2d58d3cf64c1851ea7349cea6f": {
@@ -145,7 +172,10 @@
       "reported": [
         "billing_details_provided"
       ],
-      "missing": []
+      "missing": [],
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false
     }
   },
   "d318c0aefab3fccc90ddb20594b13cc24cd4f34648eb5c53072f26471bc4c1e3": {
@@ -159,7 +189,10 @@
       "reported": [
         "offline_access"
       ],
-      "missing": []
+      "missing": [],
+      "additional_intents": [],
+      "refund_target": "unspecified",
+      "unsupported_language": false
     }
   },
   "ff9a6f1b0ece9e96809264aaaffed47c53857b378d45df1415e9109c3d0d44e4": {
@@ -175,7 +208,10 @@
       ],
       "missing": [
         "technical_symptom"
-      ]
+      ],
+      "additional_intents": [],
+      "refund_target": "latest_renewal",
+      "unsupported_language": false
     }
   }
 }

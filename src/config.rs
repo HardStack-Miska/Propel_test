@@ -72,7 +72,7 @@ impl Config {
                 Analyzer::deepseek(DeepSeekConfig {
                     api_key: self.get("DEEPSEEK_API_KEY", "")?,
                     model,
-                    max_tokens: u32::try_from(self.positive("DEEPSEEK_MAX_TOKENS", 384)?)
+                    max_tokens: u32::try_from(self.positive("DEEPSEEK_MAX_TOKENS", 512)?)
                         .context("invalid output limit")?,
                     timeout: Duration::from_millis(self.positive("MODEL_TIMEOUT_MS", 15000)?),
                     max_in_flight: concurrency,
